@@ -136,6 +136,7 @@ button.ghost {
   background: #0f1320;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 /* Consistent image sizing */
@@ -271,6 +272,42 @@ td {
 .draggable.ghost {
   opacity: 0.25;
   filter: grayscale(0.6);
+}
+
+/* Attended outline + flag */
+/* Attended outline + flag */
+.option.attended {
+  border-color: rgba(58, 220, 170, 0.6);
+  box-shadow: 0 6px 24px rgba(58, 220, 170, 0.12);
+}
+
+.option.absent img {
+  filter: grayscale(1) brightness(0.6) contrast(0.95);
+  opacity: 0.55;
+}
+
+.option .attendedFlag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, rgba(58,220,170,0.18), rgba(58,220,170,0.08));
+  color: #fbfbfb;
+  font-weight: 700;
+  font-size: 13px;
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+  border-bottom: 1px solid rgba(58,220,170,0.12);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35) inset;
+  position: static;
+}
+
+.attendedFlag .attendedIcon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  display: inline-block;
 }
 
 .slotPreview {
@@ -648,3 +685,50 @@ button.ready:hover {
 .attendee img { width:100%; height:100%; object-fit:cover; display:block; }
 .attendee.no img { filter:grayscale(100%); opacity:0.35; }
 .attendee.yes img { filter:none; opacity:1; }
+/* ===== Burger Club Tracker ===== */
+.trackerTable { width: 100%; border-collapse: collapse; }
+.trackerTable th, .trackerTable td {
+  padding: 10px;
+  border-bottom: 1px solid #232a3c;
+  font-size: 13px;
+  vertical-align: top;
+}
+.trackerTable th { position: sticky; top: 0; background: #141824; z-index: 1; }
+.num { text-align: right; white-space: nowrap; }
+.strong { font-weight: 700; }
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 999;
+}
+.modalCard {
+  width: min(900px, 96vw);
+  background: #141824;
+  border: 1px solid #232a3c;
+  border-radius: 14px;
+  padding: 14px;
+}
+.modal.hidden {
+  display: none;
+}
+
+.gridForm {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 900px) {
+  .gridForm { grid-template-columns: 1fr; }
+}
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.checks label { display: flex; gap: 8px; align-items: center; }

@@ -53,6 +53,71 @@ const TENANT_PHOTOS = {
   "JJ Greco": "/tenants/jj.jpg",
 };
 
+
+// Burger Club attendance cache (from /api/burger-club)
+const TENANT_FIELD_TO_NAME = {
+  paul: "Paul Morse",
+  job: "Job Gregory",
+  john: "John Wainwright",
+  andrew: "Andrew King",
+  jj: "JJ Greco",
+  joe: "Joe Wainwright",
+};
+
+let burgerClubAttendanceById = new Map(); // id -> Set(fullName)
+let burgerClubAttendanceLoadedAt = 0;
+
+function computeAttendanceSetFromBurgerClubRow(row) {
+  const s = new Set();
+  if (!row) return s;
+
+  for (const [field, fullName] of Object.entries(TENANT_FIELD_TO_NAME)) {
+    if (row[field] === true || row[field] === 1 || row[field] === "1" || row[field] === "true") {
+      s.add(fullName);
+    }
+  }
+  return s;
+}
+
+// Fetch and cache attendance from Burger Club DB (refreshes at most every 60s)
+async function ensureBurgerClubAttendanceFresh(force = false) {
+  const now = Date.now();
+  if (!force && burgerClubAttendanceLoadedAt && now - burgerClubAttendanceLoadedAt < 60_000) return;
+
+  try {
+    const data = await api("/api/burger-club", { headers: {} });
+    const rows = (data && data.rows) ? data.rows : [];
+    const m = new Map();
+
+    rows.forEach((r) => {
+      if (r && r.id != null) m.set(Number(r.id), computeAttendanceSetFromBurgerClubRow(r));
+    });
+
+    burgerClubAttendanceById = m;
+    burgerClubAttendanceLoadedAt = now;
+  } catch {
+    // Non-fatal: keep existing cache (vote UI will fall back to option-provided Attendees)
+  }
+}
+
+function overlayAttendanceOntoOptions(options) {
+  if (!Array.isArray(options)) return;
+
+  options.forEach((o) => {
+    const id = Number(o && o.id);
+    if (!Number.isFinite(id)) return;
+
+    const attendeesFromDb = burgerClubAttendanceById.get(id);
+    if (attendeesFromDb && attendeesFromDb.size) {
+      // renderAttendees() can handle arrays/strings; normalizeAttendees() will turn it into a Set.
+      o.Attendees = Array.from(attendeesFromDb);
+    } else if (attendeesFromDb && attendeesFromDb.size === 0) {
+      // Explicitly set to empty so everyone stays greyed out.
+      o.Attendees = [];
+    }
+  });
+}
+
 // =======================
 // Tabs
 // =======================
@@ -61,27 +126,23 @@ function switchTab(tabName) {
     b.classList.toggle("active", b.dataset.tab === tabName);
   });
 
-  ["vote", "brackets", "personal", "madness", "compare", "raw"].forEach((t) => {
-    const pane = $("tab-" + t);
-    if (pane) pane.classList.toggle("hidden", t !== tabName);
-  });
+  ["vote", "brackets", "personal", "madness", "compare", "raw", "tracker"].forEach(
+    (t) => {
+      const pane = $("tab-" + t);
+      if (pane) pane.classList.toggle("hidden", t !== tabName);
+    }
+  );
 
   // Optional: widen layout if you implemented body.mm-wide logic
   // document.body.classList.toggle("mm-wide", tabName === "madness");
 
-  if (tabName === "vote") {
-    refreshProgress();
-  } else if (tabName === "brackets") {
-    loadBrackets();
-  } else if (tabName === "personal") {
-    loadPersonalBracket();
-  } else if (tabName === "madness") {
-    loadMadness();
-  } else if (tabName === "compare") {
-    loadCompare();
-  } else if (tabName === "raw") {
-    loadRaw();
-  }
+  if (tabName === "vote") refreshProgress();
+  else if (tabName === "brackets") loadBrackets();
+  else if (tabName === "personal") loadPersonalBracket();
+  else if (tabName === "madness") loadMadness();
+  else if (tabName === "raw") loadRaw();
+  else if (tabName === "compare") loadCompare();
+  else if (tabName === "tracker") loadBurgerClub();
 }
 
 function bindTabs() {
@@ -114,12 +175,12 @@ function bindTenantSelect() {
   const status = $("tenantStatus");
   const msg = $("tenantMsg");
 
-  sel.addEventListener("change", () => {
+  sel?.addEventListener("change", () => {
     setMsg(msg, "Seat selected. Click “Use this seat” to apply.");
   });
 
-  btn.addEventListener("click", async () => {
-    const chosen = sel.value || "";
+  btn?.addEventListener("click", async () => {
+    const chosen = sel?.value || "";
     if (!chosen) {
       setMsg(msg, "Please choose a seat first.");
       return;
@@ -129,7 +190,7 @@ function bindTenantSelect() {
     localStorage.setItem("tenantId", tenantId);
 
     setMsg(msg, "✅ Seat applied.");
-    if (status)
+    if (status && sel)
       status.textContent = `Seat: ${sel.options[sel.selectedIndex].textContent}`;
 
     // Reset vote state + load new round for this seat
@@ -191,6 +252,11 @@ async function loadNext5() {
     const data = await api("/api/next");
     currentRoundId = data.roundId;
     currentOptions = data.options || [];
+
+    // Pull Burger Club attendance and light up tenant photos accordingly
+    await ensureBurgerClubAttendanceFresh();
+    overlayAttendanceOntoOptions(currentOptions);
+
     slotToOption = new Map();
     renderVoteCards();
     validateRanks();
@@ -199,7 +265,7 @@ async function loadNext5() {
   }
 }
 
-// ---- Attendee parsing + render (NEW) ----
+// ---- Attendee parsing + render ----
 function normalizeAttendees(attendeesRaw) {
   // Returns Set of tenant names that attended.
   const s = new Set();
@@ -212,14 +278,11 @@ function normalizeAttendees(attendeesRaw) {
     return s;
   }
 
-  // If already array of names
   if (Array.isArray(attendeesRaw)) {
     attendeesRaw.forEach((a) => a && s.add(String(a).trim()));
     return s;
   }
 
-  // If string, try to parse common patterns:
-  // "Andrew King, Paul Morse" OR "Andrew King|Paul Morse" OR JSON-like "[...]"
   const str = String(attendeesRaw).trim();
 
   // JSON array string?
@@ -303,12 +366,23 @@ function renderVoteCards() {
 
   // Pool cards
   currentOptions.forEach((o) => {
+    const tenantSel = $("tenantSelect");
+    const currentTenantName = tenantSel && tenantSel.value ? tenantSel.options[tenantSel.selectedIndex].textContent : null;
+
+    const attendeesSet = normalizeAttendees(o.Attendees);
+    const attendedBySelectedTenant = currentTenantName ? attendeesSet.has(currentTenantName) : false;
+
+    const idNum = Number(o.id);
+    const dbAttendanceKnown = burgerClubAttendanceById && burgerClubAttendanceById.has(idNum);
+    const absentBySelectedTenant = dbAttendanceKnown && currentTenantName ? !attendeesSet.has(currentTenantName) : false;
+
     const card = document.createElement("div");
-    card.className = "option draggable";
+    card.className = "option draggable" + (attendedBySelectedTenant ? " attended" : "") + (absentBySelectedTenant ? " absent" : "");
     card.draggable = true;
     card.dataset.optionId = String(o.id);
 
     card.innerHTML = `
+      ${attendedBySelectedTenant ? '<div class="attendedFlag"><img src="/tenants/burger.png" alt="Burger" class="attendedIcon" /><span>Attended</span></div>' : ''}
       <img src="${o.photoUrl}" alt="${escapeHtml(o.title)}" />
       <div class="pad">
         <div class="meta">
@@ -361,6 +435,8 @@ function clearSlot(rank) {
 function renderSlotsAndPoolState() {
   const slots = Array.from(document.querySelectorAll(".slot"));
   const pool = $("optionPool");
+  if (!pool) return;
+
   const cards = Array.from(pool.querySelectorAll(".draggable"));
   const cardById = new Map(cards.map((c) => [Number(c.dataset.optionId), c]));
 
@@ -371,6 +447,7 @@ function renderSlotsAndPoolState() {
     const body = slot.querySelector(".slotBody");
     const optionId = slotToOption.get(rank);
 
+    if (!body) return;
     body.innerHTML = "";
 
     if (!optionId) {
@@ -486,6 +563,7 @@ function bindVoteButtons() {
 // =======================
 async function loadBrackets() {
   const wrap = $("bracketWrap");
+  if (!wrap) return;
   wrap.innerHTML = "Loading…";
 
   try {
@@ -539,6 +617,8 @@ async function loadBrackets() {
 // =======================
 async function loadPersonalBracket() {
   const wrap = $("personalWrap");
+  if (!wrap) return;
+
   if (!tenantId) {
     wrap.innerHTML = `<div class="muted">Select a seat to view your personal bracket.</div>`;
     return;
@@ -770,7 +850,7 @@ function restoreMadness() {
   } catch {}
 }
 
-// ---- Undo stack (already used) ----
+// ---- Undo stack ----
 function snapshotMadness() {
   const snap = {};
   Object.entries(mmState.games).forEach(([id, g]) => {
@@ -1162,12 +1242,335 @@ async function loadCompare() {
 }
 
 // =======================
+// Burger Club Tracker (CRUD + Sorting)
+// =======================
+let bcEditingId = null;
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+// Persisted sort state for the tracker table
+let burgerSort = loadBurgerSort();
+
+function loadBurgerSort() {
+  try {
+    const raw = localStorage.getItem("burgerSort");
+    if (!raw) return { key: "id", dir: "asc" };
+    const obj = JSON.parse(raw);
+    const key = String(obj?.key || "id");
+    const dir = obj?.dir === "desc" ? "desc" : "asc";
+    return { key, dir };
+  } catch {
+    return { key: "id", dir: "asc" };
+  }
+}
+
+function persistBurgerSort() {
+  try {
+    localStorage.setItem("burgerSort", JSON.stringify(burgerSort));
+  } catch {}
+}
+
+function monthIndex(m) {
+  const i = MONTHS.indexOf(String(m || ""));
+  return i >= 0 ? i : 999;
+}
+
+function sortBurgerRows(rows) {
+  const { key, dir } = burgerSort;
+  const mul = dir === "asc" ? 1 : -1;
+
+  const norm = (v) => (v == null ? "" : v);
+
+  return rows.slice().sort((a, b) => {
+    // Special month handling (calendar order)
+    if (key === "month") {
+      return (monthIndex(a.month) - monthIndex(b.month)) * mul;
+    }
+
+    const av = a[key];
+    const bv = b[key];
+
+    // numbers
+    if (typeof av === "number" && typeof bv === "number") return (av - bv) * mul;
+
+    // booleans
+    if (typeof av === "boolean" || typeof bv === "boolean") {
+      const an = av ? 1 : 0;
+      const bn = bv ? 1 : 0;
+      return (an - bn) * mul;
+    }
+
+    // common 0/1 ints
+    if ((av === 0 || av === 1) && (bv === 0 || bv === 1)) return (av - bv) * mul;
+
+    // string fallback
+    return String(norm(av)).localeCompare(String(norm(bv))) * mul;
+  });
+}
+
+function sortIndicator(key) {
+  if (burgerSort.key !== key) return "";
+  return burgerSort.dir === "asc" ? " ▲" : " ▼";
+}
+
+function openBurgerModal(mode, row) {
+  const modal = $("burgerModal");
+  const title = $("burgerModalTitle");
+  const hint = $("burgerEditHint");
+  const btnDel = $("btnDeleteBurger");
+
+  bcEditingId = mode === "edit" ? row.id : null;
+
+  // populate selects
+  const yearSel = $("bcYear");
+  const monthSel = $("bcMonth");
+  if (yearSel && !yearSel.children.length) {
+    for (let y = 2019; y <= 2026; y++) {
+      const o = document.createElement("option");
+      o.value = String(y);
+      o.textContent = String(y);
+      yearSel.appendChild(o);
+    }
+  }
+  if (monthSel && !monthSel.children.length) {
+    MONTHS.forEach((m) => {
+      const o = document.createElement("option");
+      o.value = m;
+      o.textContent = m;
+      monthSel.appendChild(o);
+    });
+  }
+
+  // fill values
+  $("bcYear").value = String(row?.year ?? new Date().getFullYear());
+  $("bcMonth").value = String(row?.month ?? MONTHS[new Date().getMonth()]);
+  $("bcRestaurant").value = row?.restaurant ?? "";
+  $("bcLocation").value = row?.location ?? "";
+  $("bcBorough").value = row?.borough ?? "Manhattan";
+
+  $("bcPaul").checked = !!row?.paul;
+  $("bcJob").checked = !!row?.job;
+  $("bcJohn").checked = !!row?.john;
+  $("bcAndrew").checked = !!row?.andrew;
+  $("bcJJ").checked = !!row?.jj;
+  $("bcJoe").checked = !!row?.joe;
+
+  if (title) title.textContent = mode === "edit" ? `Edit Record #${row.id}` : "New Record";
+  if (hint) hint.textContent = mode === "edit" ? `Editing record #${row.id}` : "Creating a new record";
+  btnDel?.classList.toggle("hidden", mode !== "edit");
+
+  modal?.classList.remove("hidden");
+}
+
+function closeBurgerModal() {
+  $("burgerModal")?.classList.add("hidden");
+  bcEditingId = null;
+}
+
+function burgerPayloadFromForm() {
+  return {
+    year: Number($("bcYear").value),
+    month: $("bcMonth").value,
+    restaurant: $("bcRestaurant").value.trim(),
+    location: $("bcLocation").value.trim(),
+    borough: $("bcBorough").value,
+    // rating fixed server-side
+    paul: $("bcPaul").checked,
+    job: $("bcJob").checked,
+    john: $("bcJohn").checked,
+    andrew: $("bcAndrew").checked,
+    jj: $("bcJJ").checked,
+    joe: $("bcJoe").checked,
+  };
+}
+
+async function loadBurgerClub() {
+  const wrap = $("burgerTableWrap");
+  const msg = $("burgerMsg");
+  if (!wrap) return;
+
+  wrap.innerHTML = "Loading…";
+  setMsg(msg, "");
+
+  try {
+    const data = await api("/api/burger-club", { headers: {} });
+    let rows = data.rows || [];
+
+    if (!rows.length) {
+      wrap.innerHTML = `<div class="muted">No records yet. Click “+ New”.</div>`;
+      return;
+    }
+
+    rows = sortBurgerRows(rows);
+
+    const yesNo = (v) => (v ? "✅" : "—");
+
+    wrap.innerHTML = `
+      <table class="trackerTable">
+        <thead>
+          <tr>
+            <th data-sort="id">#${sortIndicator("id")}</th>
+            <th data-sort="year">Year${sortIndicator("year")}</th>
+            <th data-sort="month">Month${sortIndicator("month")}</th>
+            <th data-sort="restaurant">Restaurant${sortIndicator("restaurant")}</th>
+            <th data-sort="location">Location${sortIndicator("location")}</th>
+            <th data-sort="borough">Borough${sortIndicator("borough")}</th>
+            <th>Rating</th>
+            <th data-sort="paul">Paul${sortIndicator("paul")}</th>
+            <th data-sort="job">Job${sortIndicator("job")}</th>
+            <th data-sort="john">John${sortIndicator("john")}</th>
+            <th data-sort="andrew">Andrew${sortIndicator("andrew")}</th>
+            <th data-sort="jj">JJ${sortIndicator("jj")}</th>
+            <th data-sort="joe">Joe${sortIndicator("joe")}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (r) => `
+            <tr>
+              <td class="num strong">${r.id}</td>
+              <td class="num">${r.year}</td>
+              <td>${escapeHtml(r.month)}</td>
+              <td>${escapeHtml(r.restaurant)}</td>
+              <td>${escapeHtml(r.location)}</td>
+              <td>${escapeHtml(r.borough)}</td>
+              <td>${escapeHtml(r.rating)}</td>
+              <td class="num">${yesNo(r.paul)}</td>
+              <td class="num">${yesNo(r.job)}</td>
+              <td class="num">${yesNo(r.john)}</td>
+              <td class="num">${yesNo(r.andrew)}</td>
+              <td class="num">${yesNo(r.jj)}</td>
+              <td class="num">${yesNo(r.joe)}</td>
+              <td class="num">
+                <button class="miniBtn" data-edit="${r.id}">Edit</button>
+              </td>
+            </tr>
+          `
+            )
+            .join("")}
+        </tbody>
+      </table>
+    `;
+
+    // Bind edit buttons
+    wrap.querySelectorAll("[data-edit]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.edit);
+        const row = rows.find((x) => x.id === id);
+        if (row) openBurgerModal("edit", row);
+      });
+    });
+
+    // Bind sortable headers
+    wrap.querySelectorAll("th[data-sort]").forEach((th) => {
+      th.style.cursor = "pointer";
+      th.addEventListener("click", () => {
+        const key = th.dataset.sort;
+        if (!key) return;
+
+        if (burgerSort.key === key) {
+          burgerSort.dir = burgerSort.dir === "asc" ? "desc" : "asc";
+        } else {
+          burgerSort.key = key;
+          burgerSort.dir = "asc";
+        }
+
+        persistBurgerSort();
+        loadBurgerClub(); // re-render sorted
+      });
+    });
+  } catch (e) {
+    wrap.innerHTML = `<div class="muted">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function saveBurgerClub() {
+  const msg = $("burgerMsg");
+  setMsg(msg, "");
+
+  const payload = burgerPayloadFromForm();
+
+  try {
+    if (bcEditingId) {
+      await api(`/api/burger-club/${bcEditingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setMsg(msg, `✅ Updated record #${bcEditingId}`);
+    } else {
+      const out = await api(`/api/burger-club`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setMsg(msg, `✅ Created record #${out?.row?.id ?? ""}`.trim());
+    }
+
+    burgerClubAttendanceLoadedAt = 0;
+    closeBurgerModal();
+    await loadBurgerClub();
+  } catch (e) {
+    setMsg(msg, `Save failed: ${e.message}`);
+  }
+}
+
+async function deleteBurgerClub() {
+  const msg = $("burgerMsg");
+  if (!bcEditingId) return;
+
+  if (!confirm(`Delete record #${bcEditingId}?`)) return;
+
+  try {
+    await api(`/api/burger-club/${bcEditingId}`, {
+      method: "DELETE",
+      headers: {},
+    });
+    setMsg(msg, `🗑️ Deleted record #${bcEditingId}`);
+    burgerClubAttendanceLoadedAt = 0;
+    closeBurgerModal();
+    await loadBurgerClub();
+  } catch (e) {
+    setMsg(msg, `Delete failed: ${e.message}`);
+  }
+}
+
+function bindBurgerClub() {
+  $("btnRefreshBurger")?.addEventListener("click", loadBurgerClub);
+  $("btnNewBurger")?.addEventListener("click", () => openBurgerModal("new", null));
+  $("btnCloseBurgerModal")?.addEventListener("click", closeBurgerModal);
+  $("btnSaveBurger")?.addEventListener("click", saveBurgerClub);
+  $("btnDeleteBurger")?.addEventListener("click", deleteBurgerClub);
+
+  // click outside modal card closes
+  $("burgerModal")?.addEventListener("click", (e) => {
+    if (e.target?.id === "burgerModal") closeBurgerModal();
+  });
+}
+
+// =======================
 // Init
 // =======================
 document.addEventListener("DOMContentLoaded", async () => {
   bindTabs();
   bindTenantSelect();
   bindVoteButtons();
+  bindBurgerClub();
 
   await loadTenants();
   if (tenantId) await refreshProgress();

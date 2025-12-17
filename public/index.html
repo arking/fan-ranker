@@ -30,6 +30,8 @@
   <button class="tab" data-tab="madness">March Madness Bracket</button>
   <button class="tab" data-tab="raw">Raw</button>
   <button class="tab" data-tab="compare">Compare</button>
+  <button class="tab" data-tab="tracker">Burger Club Tracker</button>
+
 
 </nav>
 
@@ -137,6 +139,111 @@
             <div id="rawTableWrap"></div>
           </div>
         </section>
+
+        <section id="tab-tracker" class="tabpane hidden">
+  <div class="card">
+    <div class="row space">
+      <h2>Burger Club Tracker</h2>
+      <div class="row">
+        <button id="btnNewBurger" class="ghost">+ New</button>
+        <button id="btnRefreshBurger" class="ghost">Refresh</button>
+      </div>
+    </div>
+
+    <div id="burgerMsg" class="muted" style="margin:8px 0;"></div>
+    <div id="burgerTableWrap"></div>
+  </div>
+
+  <!-- Simple inline editor modal -->
+  <div id="burgerModal" class="modal hidden">
+    <div class="modalCard">
+      <div class="row space" style="margin-bottom:10px;">
+        <h2 id="burgerModalTitle">New Record</h2>
+        <button id="btnCloseBurgerModal" class="ghost">Close</button>
+      </div>
+
+      <div class="gridForm">
+        <div>
+          <div class="muted small">Year</div>
+          <select id="bcYear">
+            <option>2019</option>
+            <option>2020</option>
+            <option>2021</option>
+            <option>2022</option>
+            <option>2023</option>
+            <option>2024</option>
+            <option>2025</option>
+            <option>2026</option>
+          </select>
+        </div>
+        <div>
+          <div class="muted small">Month</div>
+          <select id="bcMonth">
+          <option>January</option>
+          <option>February</option>
+          <option>March</option>
+          <option>April</option>
+          <option>May</option>
+          <option>June</option>
+          <option>July</option>
+          <option>August</option>
+          <option>September</option>
+          <option>October</option>
+          <option>November</option>
+          <option>December</option>
+          </select>
+        </div>
+
+        <div>
+          <div class="muted small">Restaurant</div>
+          <input id="bcRestaurant" placeholder="Restaurant name" />
+        </div>
+        <div>
+          <div class="muted small">Location</div>
+          <input id="bcLocation" placeholder="Neighborhood / address" />
+        </div>
+
+        <div>
+          <div class="muted small">Borough</div>
+          <select id="bcBorough">
+            <option>Manhattan</option>
+            <option>Brooklyn</option>
+            <option>Queens</option>
+            <option>Bronx</option>
+            <option>Staten Island</option>
+            <option>Other</option>
+          </select>
+        </div>
+
+        <div>
+          <div class="muted small">Rating</div>
+          <input value="Best Burger Ever" disabled />
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div class="muted small" style="margin-bottom:6px;">Attendees</div>
+        <div class="checks">
+          <label><input type="checkbox" id="bcPaul" /> Paul</label>
+          <label><input type="checkbox" id="bcJob" /> Job</label>
+          <label><input type="checkbox" id="bcJohn" /> John</label>
+          <label><input type="checkbox" id="bcAndrew" /> Andrew</label>
+          <label><input type="checkbox" id="bcJJ" /> JJ</label>
+          <label><input type="checkbox" id="bcJoe" /> Joe</label>
+        </div>
+      </div>
+
+      <div class="row space" style="margin-top:14px;">
+        <div class="muted small" id="burgerEditHint"></div>
+        <div class="row">
+          <button id="btnDeleteBurger" class="ghost">Delete</button>
+          <button id="btnSaveBurger">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
       </main>
 
       <footer class="muted small">

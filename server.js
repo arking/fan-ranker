@@ -43,9 +43,43 @@ CREATE TABLE IF NOT EXISTS votes (
   FOREIGN KEY(tenant_id) REFERENCES tenants(id),
   FOREIGN KEY(option_id) REFERENCES options(id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_votes_tenant_option ON votes(tenant_id, option_id);
 CREATE INDEX IF NOT EXISTS idx_votes_created ON votes(created_at);
+`);
+
+// --- Migrate votes table to add weight column if missing ---
+try {
+  const cols = db.prepare("PRAGMA table_info(votes)").all();
+  if (!cols.find((c) => c.name === "weight")) {
+    db.prepare("ALTER TABLE votes ADD COLUMN weight REAL NOT NULL DEFAULT 1").run();
+    console.log("Migrated: added votes.weight column");
+  }
+} catch (err) {
+  console.warn("Could not ensure votes.weight column:", err.message);
+}
+// --- Burger Club Tracker table ---
+db.exec(`
+CREATE TABLE IF NOT EXISTS burger_club (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,       -- this is your # (1,2,3...)
+  year INTEGER NOT NULL CHECK(year BETWEEN 2019 AND 2026),
+  month TEXT NOT NULL,
+  restaurant TEXT NOT NULL,
+  location TEXT NOT NULL,
+  borough TEXT NOT NULL CHECK(borough IN ('Manhattan','Brooklyn','Queens','Bronx','Staten Island','Other')),
+  rating TEXT NOT NULL DEFAULT 'Best Burger Ever',
+
+  paul INTEGER NOT NULL DEFAULT 0 CHECK(paul IN (0,1)),
+  job  INTEGER NOT NULL DEFAULT 0 CHECK(job  IN (0,1)),
+  john INTEGER NOT NULL DEFAULT 0 CHECK(john IN (0,1)),
+  andrew INTEGER NOT NULL DEFAULT 0 CHECK(andrew IN (0,1)),
+  jj   INTEGER NOT NULL DEFAULT 0 CHECK(jj   IN (0,1)),
+  joe  INTEGER NOT NULL DEFAULT 0 CHECK(joe  IN (0,1)),
+
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_burger_club_year ON burger_club(year);
 `);
 
 // --- Seed Tenants if empty ---
@@ -207,11 +241,46 @@ app.post("/api/vote", requireTenant, (req, res) => {
   if (existing.length !== 5) return res.status(400).json({ error: "Unknown optionId" });
 
   const ins = db.prepare(
-    "INSERT INTO votes (tenant_id, round_id, option_id, rank) VALUES (?, ?, ?, ?)"
+    "INSERT INTO votes (tenant_id, round_id, option_id, rank, weight) VALUES (?, ?, ?, ?, ?)"
   );
 
+  // Map tenant full name -> burger_club column
+  const TENANT_NAME_TO_FIELD = {
+    "Paul Morse": "paul",
+    "Job Gregory": "job",
+    "John Wainwright": "john",
+    "Andrew King": "andrew",
+    "JJ Greco": "jj",
+    "Joe Wainwright": "joe",
+  };
+
+  const tenantField = TENANT_NAME_TO_FIELD[req.tenant.name] || null;
+
   const tx = db.transaction(() => {
-    rankings.forEach((r) => ins.run(tenantId, roundId, r.optionId, r.rank));
+    rankings.forEach((r) => {
+      // determine attendance for this tenant for the option
+      let attended = false;
+
+      try {
+        const bcRow = db.prepare("SELECT * FROM burger_club WHERE id = ?").get(r.optionId);
+        if (bcRow && tenantField && (bcRow[tenantField] === 1 || bcRow[tenantField] === "1" || bcRow[tenantField] === true)) {
+          attended = true;
+        } else {
+          // fallback to options.attendees text
+          const opt = db.prepare("SELECT attendees FROM options WHERE id = ?").get(r.optionId);
+          if (opt && opt.attendees) {
+            const attStr = String(opt.attendees).toLowerCase();
+            if (attStr.includes(String(req.tenant.name).toLowerCase())) attended = true;
+            if (attStr === "true") attended = true;
+          }
+        }
+      } catch (err) {
+        // ignore and assume not attended
+      }
+
+      const weight = attended ? 1 : 0.5;
+      ins.run(tenantId, roundId, r.optionId, r.rank, weight);
+    });
   });
 
   tx();
@@ -226,9 +295,9 @@ app.get("/api/brackets", (req, res) => {
       `SELECT
         o.id, o.title, o.month, o.year, o.location, o.photo_url,
         o.additional_notes, o.attendees,
-        COUNT(v.id) as votes,
-        AVG(6 - v.rank) as avg_points,
-        AVG(v.rank) as avg_rank
+        COALESCE(SUM(v.weight),0) as votes,
+        SUM((6 - v.rank) * v.weight) / NULLIF(SUM(v.weight),0) as avg_points,
+        SUM(v.rank * v.weight) / NULLIF(SUM(v.weight),0) as avg_rank
       FROM options o
       LEFT JOIN votes v ON v.option_id = o.id
       GROUP BY o.id`
@@ -306,9 +375,9 @@ app.get("/api/personal-bracket", requireTenant, (req, res) => {
       `SELECT
         o.id, o.title, o.month, o.year, o.location, o.photo_url,
         o.additional_notes, o.attendees,
-        COUNT(v.id) as votes,
-        AVG(6 - v.rank) as avg_points,
-        AVG(v.rank) as avg_rank
+        COALESCE(SUM(v.weight),0) as votes,
+        SUM((6 - v.rank) * v.weight) / NULLIF(SUM(v.weight),0) as avg_points,
+        SUM(v.rank * v.weight) / NULLIF(SUM(v.weight),0) as avg_rank
       FROM options o
       LEFT JOIN votes v
         ON v.option_id = o.id AND v.tenant_id = ?
@@ -423,6 +492,148 @@ app.get("/api/compare", (req, res) => {
   });
 
   res.json({ tenants, options, ranksByTenant });
+});
+// --- Burger Club Tracker table ---
+db.exec(`
+CREATE TABLE IF NOT EXISTS burger_club (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,       -- this is your # (1,2,3...)
+  year INTEGER NOT NULL CHECK(year BETWEEN 2019 AND 2026),
+  month TEXT NOT NULL,
+  restaurant TEXT NOT NULL,
+  location TEXT NOT NULL,
+  borough TEXT NOT NULL CHECK(borough IN ('Manhattan','Brooklyn','Queens','Bronx','Staten Island','Other')),
+  rating TEXT NOT NULL DEFAULT 'Best Burger Ever',
+
+  paul INTEGER NOT NULL DEFAULT 0 CHECK(paul IN (0,1)),
+  job  INTEGER NOT NULL DEFAULT 0 CHECK(job  IN (0,1)),
+  john INTEGER NOT NULL DEFAULT 0 CHECK(john IN (0,1)),
+  andrew INTEGER NOT NULL DEFAULT 0 CHECK(andrew IN (0,1)),
+  jj   INTEGER NOT NULL DEFAULT 0 CHECK(jj   IN (0,1)),
+  joe  INTEGER NOT NULL DEFAULT 0 CHECK(joe  IN (0,1)),
+
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_burger_club_year ON burger_club(year);
+`);
+// =======================
+// Burger Club Tracker API
+// =======================
+
+// List all records
+app.get("/api/burger-club", (req, res) => {
+  const rows = db
+    .prepare(
+      `SELECT
+        id, year, month, restaurant, location, borough, rating,
+        paul, job, john, andrew, jj, joe,
+        created_at, updated_at
+      FROM burger_club
+      ORDER BY id DESC`
+    )
+    .all();
+
+  res.json({ rows });
+});
+
+// Create record
+app.post("/api/burger-club", (req, res) => {
+  const b = req.body || {};
+
+  const year = Number(b.year);
+  const month = String(b.month || "");
+  const restaurant = String(b.restaurant || "").trim();
+  const location = String(b.location || "").trim();
+  const borough = String(b.borough || "");
+  const rating = "Best Burger Ever"; // fixed value per requirement
+
+  const to01 = (x) => (x ? 1 : 0);
+
+  if (!(year >= 2019 && year <= 2026)) return res.status(400).json({ error: "Invalid year" });
+  if (!month) return res.status(400).json({ error: "Month required" });
+  if (!restaurant) return res.status(400).json({ error: "Restaurant required" });
+  if (!location) return res.status(400).json({ error: "Location required" });
+  if (!["Manhattan","Brooklyn","Queens","Bronx","Staten Island","Other"].includes(borough)) {
+    return res.status(400).json({ error: "Invalid borough" });
+  }
+
+  const stmt = db.prepare(`
+    INSERT INTO burger_club
+      (year, month, restaurant, location, borough, rating, paul, job, john, andrew, jj, joe, updated_at)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  `);
+
+  const info = stmt.run(
+    year, month, restaurant, location, borough, rating,
+    to01(b.paul), to01(b.job), to01(b.john), to01(b.andrew), to01(b.jj), to01(b.joe)
+  );
+
+  const row = db.prepare(`SELECT * FROM burger_club WHERE id = ?`).get(info.lastInsertRowid);
+  res.json({ ok: true, row });
+});
+
+// Update record
+app.put("/api/burger-club/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const b = req.body || {};
+
+  if (!id) return res.status(400).json({ error: "Invalid id" });
+
+  const year = Number(b.year);
+  const month = String(b.month || "");
+  const restaurant = String(b.restaurant || "").trim();
+  const location = String(b.location || "").trim();
+  const borough = String(b.borough || "");
+  const rating = "Best Burger Ever";
+
+  const to01 = (x) => (x ? 1 : 0);
+
+  if (!(year >= 2019 && year <= 2026)) return res.status(400).json({ error: "Invalid year" });
+  if (!month) return res.status(400).json({ error: "Month required" });
+  if (!restaurant) return res.status(400).json({ error: "Restaurant required" });
+  if (!location) return res.status(400).json({ error: "Location required" });
+  if (!["Manhattan","Brooklyn","Queens","Bronx","Staten Island","Other"].includes(borough)) {
+    return res.status(400).json({ error: "Invalid borough" });
+  }
+
+  const exists = db.prepare(`SELECT id FROM burger_club WHERE id = ?`).get(id);
+  if (!exists) return res.status(404).json({ error: "Not found" });
+
+  db.prepare(`
+    UPDATE burger_club SET
+      year = ?,
+      month = ?,
+      restaurant = ?,
+      location = ?,
+      borough = ?,
+      rating = ?,
+      paul = ?,
+      job = ?,
+      john = ?,
+      andrew = ?,
+      jj = ?,
+      joe = ?,
+      updated_at = datetime('now')
+    WHERE id = ?
+  `).run(
+    year, month, restaurant, location, borough, rating,
+    to01(b.paul), to01(b.job), to01(b.john), to01(b.andrew), to01(b.jj), to01(b.joe),
+    id
+  );
+
+  const row = db.prepare(`SELECT * FROM burger_club WHERE id = ?`).get(id);
+  res.json({ ok: true, row });
+});
+
+// Delete record
+app.delete("/api/burger-club/:id", (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ error: "Invalid id" });
+
+  const info = db.prepare(`DELETE FROM burger_club WHERE id = ?`).run(id);
+  res.json({ ok: true, deleted: info.changes });
 });
 
 
