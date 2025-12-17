@@ -161,6 +161,15 @@ button.ghost {
 
 .tab.active {
   background: #2a3350;
+  outline: 3px solid rgba(58, 220, 170, 0.18);
+  outline-offset: 2px;
+  box-shadow: 0 6px 18px rgba(58,220,170,0.06);
+}
+
+/* Keyboard focus visible for accessibility */
+.tab:focus {
+  outline: 2px solid rgba(58,220,170,0.32);
+  outline-offset: 2px;
 }
 
 /* Grid layout: 5-up desktop, responsive down */
