@@ -431,9 +431,11 @@ app.get("/api/raw", (req, res) => {
   const rows = db
     .prepare(
       `SELECT
+        v.id as vote_id,
         v.created_at,
         v.round_id,
         v.rank,
+        v.tenant_id,
         t.name as tenant_name,
         o.id as option_id,
         o.title as option_title,
@@ -449,6 +451,28 @@ app.get("/api/raw", (req, res) => {
     .all(limit);
 
   res.json({ rows });
+});
+
+// --- Delete all votes for current tenant (requires tenant) ---
+app.delete("/api/votes", requireTenant, (req, res) => {
+  const info = db.prepare("DELETE FROM votes WHERE tenant_id = ?").run(req.tenant.id);
+  res.json({ deleted: info.changes });
+});
+
+// --- Delete a specific vote by id (tenant may only delete their own vote) ---
+app.delete("/api/vote/:id", requireTenant, (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ error: "Invalid id" });
+
+  const row = db.prepare("SELECT tenant_id FROM votes WHERE id = ?").get(id);
+  if (!row) return res.status(404).json({ error: "Not found" });
+
+  if (row.tenant_id !== req.tenant.id) {
+    return res.status(403).json({ error: "Can only delete your own votes" });
+  }
+
+  const info = db.prepare("DELETE FROM votes WHERE id = ?").run(id);
+  res.json({ deleted: info.changes });
 });
 // --- Compare: ranks for every tenant (optionId -> overallRank) ---
 app.get("/api/compare", (req, res) => {

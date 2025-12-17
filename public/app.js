@@ -709,6 +709,12 @@ async function loadRaw() {
     }
 
     wrap.innerHTML = `
+      <div style="margin-bottom:10px; display:flex; gap:8px; align-items:center;">
+        <button id="btnDeleteMine" class="miniBtn">Delete my submissions</button>
+        <button id="btnRefreshRawLocal" class="miniBtn">Refresh</button>
+        <div class="muted small" style="margin-left:auto">Showing ${rows.length} rows</div>
+      </div>
+
       <table>
         <thead>
           <tr>
@@ -717,25 +723,65 @@ async function loadRaw() {
             <th>Option</th>
             <th>Rank</th>
             <th>Round</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           ${rows
             .map(
-              (r) => `
+              (r) => {
+                const canDelete = tenantId && String(r.tenant_id) === String(tenantId);
+                return `
             <tr>
               <td>${escapeHtml(r.created_at)}</td>
               <td>${escapeHtml(r.tenant_name)}</td>
               <td>${escapeHtml(r.option_title)}</td>
               <td>${r.rank}</td>
               <td>${escapeHtml(r.round_id)}</td>
+              <td>${canDelete ? `<button class="miniBtn" data-delete-vote="${r.vote_id}">Delete</button>` : ""}</td>
             </tr>
           `
+              }
             )
             .join("")}
         </tbody>
       </table>
     `;
+
+    // bind buttons
+    $("btnRefreshRawLocal")?.addEventListener("click", loadRaw);
+
+    $("btnDeleteMine")?.addEventListener("click", async () => {
+      if (!tenantId) {
+        setMsg($("voteMsg"), "Select a seat first.");
+        return;
+      }
+      if (!confirm("Delete ALL your submissions? This cannot be undone.")) return;
+      try {
+        await api("/api/votes", { method: "DELETE" });
+        await loadRaw();
+        await refreshProgress();
+        setMsg($("voteMsg"), "Deleted your submissions.");
+      } catch (e) {
+        setMsg($("voteMsg"), `Delete failed: ${e.message}`);
+      }
+    });
+
+    wrap.querySelectorAll("[data-delete-vote]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.deleteVote;
+        if (!id) return;
+        if (!confirm(`Delete vote #${id}? This cannot be undone.`)) return;
+        try {
+          await api(`/api/vote/${id}`, { method: "DELETE" });
+          await loadRaw();
+          await refreshProgress();
+          setMsg($("voteMsg"), `Deleted vote #${id}`);
+        } catch (e) {
+          setMsg($("voteMsg"), `Delete failed: ${e.message}`);
+        }
+      });
+    });
   } catch (e) {
     wrap.innerHTML = `<div class="muted">${escapeHtml(e.message)}</div>`;
   }
