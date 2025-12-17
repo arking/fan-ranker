@@ -14,11 +14,18 @@
         <div id="tenantStatus" class="muted"></div>
       </header>
 
+      <!-- Left rail for selected tenant photo -->
+      <aside id="leftRail" class="leftRail">
+        <div class="tenantCard">
+          <img id="tenantPhoto" src="/tenants/burger.png" alt="Tenant photo" />
+          <div id="tenantName" class="muted small">No seat</div>
+        </div>
+      </aside>
+
       <section class="card">
         <h2>Select your seat</h2>
         <div class="row">
           <select id="tenantSelect"></select>
-          <button id="btnSetTenant">Use this seat</button>
         </div>
         <div id="tenantMsg" class="muted"></div>
       </section>

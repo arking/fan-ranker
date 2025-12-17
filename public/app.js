@@ -171,37 +171,46 @@ async function loadTenants() {
 
 function bindTenantSelect() {
   const sel = $("tenantSelect");
-  const btn = $("btnSetTenant");
+  const status = $("tenantStatus");
+  const msg = $("tenantMsg");
+  sel?.addEventListener("change", async () => {
+    // Auto-apply immediately when selection changes
+    await applySelectedTenant();
+  });
+
+  // Backwards-compatible click handler if button still exists in DOM
+  $("btnSetTenant")?.addEventListener("click", applySelectedTenant);
+}
+
+async function applySelectedTenant() {
+  const sel = $("tenantSelect");
   const status = $("tenantStatus");
   const msg = $("tenantMsg");
 
-  sel?.addEventListener("change", () => {
-    setMsg(msg, "Seat selected. Click “Use this seat” to apply.");
-  });
+  const chosen = sel?.value || "";
+  if (!chosen) {
+    setMsg(msg, "Please choose a seat first.");
+    return;
+  }
 
-  btn?.addEventListener("click", async () => {
-    const chosen = sel?.value || "";
-    if (!chosen) {
-      setMsg(msg, "Please choose a seat first.");
-      return;
-    }
+  tenantId = chosen;
+  localStorage.setItem("tenantId", tenantId);
 
-    tenantId = chosen;
-    localStorage.setItem("tenantId", tenantId);
+  setMsg(msg, "✅ Seat applied.");
+  if (status && sel)
+    status.textContent = `Seat: ${sel.options[sel.selectedIndex].textContent}`;
 
-    setMsg(msg, "✅ Seat applied.");
-    if (status && sel)
-      status.textContent = `Seat: ${sel.options[sel.selectedIndex].textContent}`;
+  // Update left rail tenant photo
+  updateTenantRail();
 
-    // Reset vote state + load new round for this seat
-    currentRoundId = null;
-    currentOptions = [];
-    slotToOption = new Map();
-    renderVoteCards();
+  // Reset vote state + load new round for this seat
+  currentRoundId = null;
+  currentOptions = [];
+  slotToOption = new Map();
+  renderVoteCards();
 
-    await refreshProgress();
-    await loadNext5();
-  });
+  await refreshProgress();
+  await loadNext5();
 }
 
 // =======================
@@ -304,6 +313,24 @@ function normalizeAttendees(attendeesRaw) {
     .forEach((name) => s.add(name));
 
   return s;
+}
+
+// Update left rail tenant photo and name
+function updateTenantRail() {
+  const photoEl = $("tenantPhoto");
+  const nameEl = $("tenantName");
+  const sel = $("tenantSelect");
+  if (!photoEl || !nameEl) return;
+
+  if (!tenantId || !sel || !sel.value) {
+    photoEl.src = "/tenants/burger.png";
+    nameEl.textContent = "No seat";
+    return;
+  }
+
+  const name = sel.options[sel.selectedIndex]?.textContent || "";
+  nameEl.textContent = name || "No seat";
+  photoEl.src = TENANT_PHOTOS[name] || "/tenants/placeholder.png";
 }
 
 function renderAttendees(attendeesRaw) {
@@ -1652,6 +1679,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindBurgerClub();
 
   await loadTenants();
+  // show tenant photo in left rail (placeholder if none)
+  updateTenantRail();
   if (tenantId) await refreshProgress();
 
   // Raw
