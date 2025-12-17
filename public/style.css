@@ -528,11 +528,6 @@ td {
 }
 
 /* Highlight connectors when a team is picked */
-.mmTeam.picked ~ .mmTeam,
-.mmTeam.picked {
-  /* keep picked appearance */
-}
-.mmTeam.picked + .mmTeam {}
 .mmTeam.picked {
   box-shadow: 0 6px 18px rgba(58,220,160,0.08) inset;
 }

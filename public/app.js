@@ -720,8 +720,10 @@ async function loadRaw() {
           <tr>
             <th>Time</th>
             <th>User</th>
+            <th>Photo</th>
             <th>Option</th>
             <th>Rank</th>
+            <th>Weight</th>
             <th>Round</th>
             <th></th>
           </tr>
@@ -735,8 +737,10 @@ async function loadRaw() {
             <tr>
               <td>${escapeHtml(r.created_at)}</td>
               <td>${escapeHtml(r.tenant_name)}</td>
+              <td>${r.option_photo ? `<img src="${escapeHtml(r.option_photo)}" style="width:48px;height:32px;object-fit:cover;border-radius:4px;"/>` : ''}</td>
               <td>${escapeHtml(r.option_title)}</td>
               <td>${r.rank}</td>
+              <td>${typeof r.weight !== 'undefined' ? Number(r.weight).toFixed(2) : ''}</td>
               <td>${escapeHtml(r.round_id)}</td>
               <td>${canDelete ? `<button class="miniBtn" data-delete-vote="${r.vote_id}">Delete</button>` : ""}</td>
             </tr>
@@ -1406,19 +1410,17 @@ function openBurgerModal(mode, row) {
   $("bcRestaurant").value = row?.restaurant ?? "";
   $("bcLocation").value = row?.location ?? "";
   $("bcBorough").value = row?.borough ?? "Manhattan";
-
-  // new fields
-  $("bcNotes").value = row?.additional_notes ?? row?.additionalNotes ?? "";
-  $("bcGuests").value = row?.guests ?? "";
-  // clear file input preview
-  if ($("bcPhoto")) $("bcPhoto").value = "";
-
   $("bcPaul").checked = !!row?.paul;
   $("bcJob").checked = !!row?.job;
   $("bcJohn").checked = !!row?.john;
   $("bcAndrew").checked = !!row?.andrew;
   $("bcJJ").checked = !!row?.jj;
   $("bcJoe").checked = !!row?.joe;
+  // new fields
+  $("bcNotes").value = row?.additional_notes ?? row?.additionalNotes ?? "";
+  $("bcGuests").value = row?.guests ?? "";
+  // clear file input preview
+  if ($("bcPhoto")) $("bcPhoto").value = "";
 
   if (title) title.textContent = mode === "edit" ? `Edit Record #${row.id}` : "New Record";
   if (hint) hint.textContent = mode === "edit" ? `Editing record #${row.id}` : "Creating a new record";
@@ -1489,6 +1491,9 @@ async function loadBurgerClub() {
             <th data-sort="andrew">Andrew${sortIndicator("andrew")}</th>
             <th data-sort="jj">JJ${sortIndicator("jj")}</th>
             <th data-sort="joe">Joe${sortIndicator("joe")}</th>
+            <th>Photo</th>
+            <th>Notes</th>
+            <th>Guests</th>
             <th></th>
           </tr>
         </thead>
@@ -1510,6 +1515,9 @@ async function loadBurgerClub() {
               <td class="num">${yesNo(r.andrew)}</td>
               <td class="num">${yesNo(r.jj)}</td>
               <td class="num">${yesNo(r.joe)}</td>
+              <td>${r.photo_url ? `<img src="${escapeHtml(r.photo_url)}" style="width:72px;height:48px;object-fit:cover;border-radius:6px;"/>` : ''}</td>
+              <td>${escapeHtml(r.additional_notes || '')}</td>
+              <td>${escapeHtml(r.guests || '')}</td>
               <td class="num">
                 <button class="miniBtn" data-edit="${r.id}">Edit</button>
               </td>

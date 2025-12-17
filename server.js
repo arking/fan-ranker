@@ -79,6 +79,8 @@ CREATE TABLE IF NOT EXISTS burger_club (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+`);
+
 // Ensure additional columns exist: photo_url, additional_notes, guests
 try {
   const cols = db.prepare("PRAGMA table_info(burger_club)").all();
@@ -104,8 +106,12 @@ try {
   console.warn("Could not ensure public/burgers directory:", err.message);
 }
 
-CREATE INDEX IF NOT EXISTS idx_burger_club_year ON burger_club(year);
-`);
+// Create index for burger_club year if missing
+try {
+  db.exec("CREATE INDEX IF NOT EXISTS idx_burger_club_year ON burger_club(year);");
+} catch (err) {
+  console.warn("Could not create idx_burger_club_year:", err.message);
+}
 
 // --- Seed Tenants if empty ---
 const tenantCount = db.prepare("SELECT COUNT(*) as c FROM tenants").get().c;
@@ -168,12 +174,12 @@ app.get("/api/tenants", (req, res) => {
 app.get("/api/progress", requireTenant, (req, res) => {
   const rows = db
     .prepare(
-      `SELECT o.id as option_id, COUNT(v.id) as times_ranked
-       FROM options o
+      `SELECT b.id as option_id, COUNT(v.id) as times_ranked
+       FROM burger_club b
        LEFT JOIN votes v
-         ON v.option_id = o.id AND v.tenant_id = ?
-       GROUP BY o.id
-       ORDER BY o.id`
+         ON v.option_id = b.id AND v.tenant_id = ?
+       GROUP BY b.id
+       ORDER BY b.id`
     )
     .all(req.tenant.id);
 
@@ -191,17 +197,16 @@ app.get("/api/progress", requireTenant, (req, res) => {
 // Prioritize options ranked < 2 times by this tenant, then fill randomly.
 app.get("/api/next", requireTenant, (req, res) => {
   const tenantId = req.tenant.id;
-
   const counts = db
     .prepare(
       `SELECT
-        o.id, o.title, o.month, o.year, o.location,
-        o.photo_url, o.additional_notes, o.attendees,
+        b.id, b.restaurant as title, b.month, b.year, b.location,
+        b.photo_url, b.additional_notes,
         COUNT(v.id) as times_ranked
-       FROM options o
+       FROM burger_club b
        LEFT JOIN votes v
-         ON v.option_id = o.id AND v.tenant_id = ?
-       GROUP BY o.id`
+         ON v.option_id = b.id AND v.tenant_id = ?
+       GROUP BY b.id`
     )
     .all(tenantId);
 
@@ -224,7 +229,7 @@ app.get("/api/next", requireTenant, (req, res) => {
     location: o.location,
     photoUrl: o.photo_url,
     Additional_Notes: o.additional_notes,
-    Attendees: o.attendees,
+    Attendees: null,
     timesRanked: o.times_ranked
   }));
 
@@ -257,9 +262,8 @@ app.post("/api/vote", requireTenant, (req, res) => {
 
   const optSet = new Set(optionIds);
   if (optSet.size !== 5) return res.status(400).json({ error: "Duplicate options" });
-
   const existing = db
-    .prepare(`SELECT id FROM options WHERE id IN (${optionIds.map(() => "?").join(",")})`)
+    .prepare(`SELECT id FROM burger_club WHERE id IN (${optionIds.map(() => "?").join(",")})`)
     .all(...optionIds)
     .map((r) => r.id);
 
@@ -318,14 +322,14 @@ app.get("/api/brackets", (req, res) => {
   const rows = db
     .prepare(
       `SELECT
-        o.id, o.title, o.month, o.year, o.location, o.photo_url,
-        o.additional_notes, o.attendees,
+        b.id, b.restaurant as title, b.month, b.year, b.location, b.photo_url,
+        b.additional_notes,
         COALESCE(SUM(v.weight),0) as votes,
         SUM((6 - v.rank) * v.weight) / NULLIF(SUM(v.weight),0) as avg_points,
         SUM(v.rank * v.weight) / NULLIF(SUM(v.weight),0) as avg_rank
-      FROM options o
-      LEFT JOIN votes v ON v.option_id = o.id
-      GROUP BY o.id`
+      FROM burger_club b
+      LEFT JOIN votes v ON v.option_id = b.id
+      GROUP BY b.id`
     )
     .all();
 
@@ -398,13 +402,29 @@ app.get("/api/personal-bracket", requireTenant, (req, res) => {
   const rows = db
     .prepare(
       `SELECT
-        o.id, o.title, o.month, o.year, o.location, o.photo_url,
-        o.additional_notes, o.attendees,
+        o.id,
+        o.restaurant as title,
+        o.month,
+        o.year,
+        o.location,
+        o.photo_url,
+        o.additional_notes,
+        -- build a comma-separated attendees string from tenant boolean columns
+        RTRIM(
+          (CASE WHEN o.paul = 1 THEN 'Paul Morse,' ELSE '' END) ||
+          (CASE WHEN o.job = 1 THEN 'Job Gregory,' ELSE '' END) ||
+          (CASE WHEN o.john = 1 THEN 'John Wainwright,' ELSE '' END) ||
+          (CASE WHEN o.andrew = 1 THEN 'Andrew King,' ELSE '' END) ||
+          (CASE WHEN o.jj = 1 THEN 'JJ Greco,' ELSE '' END) ||
+          (CASE WHEN o.joe = 1 THEN 'Joe Wainwright,' ELSE '' END)
+        , ',') as attendees,
         COALESCE(SUM(v.weight),0) as votes,
-        SUM((6 - v.rank) * v.weight) / NULLIF(SUM(v.weight),0) as avg_points,
-        SUM(v.rank * v.weight) / NULLIF(SUM(v.weight),0) as avg_rank
-      FROM options o
-      LEFT JOIN votes v
+        CASE WHEN SUM(v.weight) IS NULL OR SUM(v.weight) = 0 THEN NULL
+             ELSE SUM((6 - v.rank) * v.weight) / SUM(v.weight) END as avg_points,
+        CASE WHEN SUM(v.weight) IS NULL OR SUM(v.weight) = 0 THEN NULL
+             ELSE SUM(v.rank * v.weight) / SUM(v.weight) END as avg_rank
+      FROM burger_club o
+      JOIN votes v
         ON v.option_id = o.id AND v.tenant_id = ?
       GROUP BY o.id`
     )
@@ -460,16 +480,19 @@ app.get("/api/raw", (req, res) => {
         v.created_at,
         v.round_id,
         v.rank,
+        v.weight,
         v.tenant_id,
         t.name as tenant_name,
-        o.id as option_id,
-        o.title as option_title,
-        o.month as option_month,
-        o.year as option_year,
-        o.location as option_location
+        COALESCE(b.id, o.id) as option_id,
+        COALESCE(b.restaurant, o.title) as option_title,
+        COALESCE(b.month, o.month) as option_month,
+        COALESCE(b.year, o.year) as option_year,
+        COALESCE(b.location, o.location) as option_location,
+        COALESCE(b.photo_url, o.photo_url) as option_photo
       FROM votes v
       JOIN tenants t ON t.id = v.tenant_id
-      JOIN options o ON o.id = v.option_id
+      LEFT JOIN burger_club b ON b.id = v.option_id
+      LEFT JOIN options o ON o.id = v.option_id
       ORDER BY v.created_at DESC
       LIMIT ?`
     )
@@ -503,19 +526,23 @@ app.delete("/api/vote/:id", requireTenant, (req, res) => {
 app.get("/api/compare", (req, res) => {
   const tenants = db.prepare("SELECT id, name FROM tenants ORDER BY id").all();
 
-  // Get options once (for titles)
-  const options = db.prepare("SELECT id, title FROM options ORDER BY id").all();
+  // Get options once (for titles) from burger_club tracker
+  const options = db.prepare("SELECT id, restaurant AS title FROM burger_club ORDER BY id").all();
 
   const ranksByTenant = {};
 
   // For each tenant, compute overallRank 1..64 using the same scoring rules
   const stmt = db.prepare(
     `SELECT
-      o.id, o.title,
+      o.id, o.restaurant AS title,
       COUNT(v.id) as votes,
-      AVG(6 - v.rank) as avg_points,
-      AVG(v.rank) as avg_rank
-    FROM options o
+      -- weighted average points (6 - rank) using vote weight
+      CASE WHEN SUM(v.weight) IS NULL OR SUM(v.weight) = 0 THEN NULL
+           ELSE SUM((6 - v.rank) * v.weight) / SUM(v.weight) END as avg_points,
+      -- weighted average rank
+      CASE WHEN SUM(v.weight) IS NULL OR SUM(v.weight) = 0 THEN NULL
+           ELSE SUM(v.rank * v.weight) / SUM(v.weight) END as avg_rank
+    FROM burger_club o
     LEFT JOIN votes v
       ON v.option_id = o.id AND v.tenant_id = ?
     GROUP BY o.id`
@@ -542,30 +569,6 @@ app.get("/api/compare", (req, res) => {
 
   res.json({ tenants, options, ranksByTenant });
 });
-// --- Burger Club Tracker table ---
-db.exec(`
-CREATE TABLE IF NOT EXISTS burger_club (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,       -- this is your # (1,2,3...)
-  year INTEGER NOT NULL CHECK(year BETWEEN 2019 AND 2026),
-  month TEXT NOT NULL,
-  restaurant TEXT NOT NULL,
-  location TEXT NOT NULL,
-  borough TEXT NOT NULL CHECK(borough IN ('Manhattan','Brooklyn','Queens','Bronx','Staten Island','Other')),
-  rating TEXT NOT NULL DEFAULT 'Best Burger Ever',
-
-  paul INTEGER NOT NULL DEFAULT 0 CHECK(paul IN (0,1)),
-  job  INTEGER NOT NULL DEFAULT 0 CHECK(job  IN (0,1)),
-  john INTEGER NOT NULL DEFAULT 0 CHECK(john IN (0,1)),
-  andrew INTEGER NOT NULL DEFAULT 0 CHECK(andrew IN (0,1)),
-  jj   INTEGER NOT NULL DEFAULT 0 CHECK(jj   IN (0,1)),
-  joe  INTEGER NOT NULL DEFAULT 0 CHECK(joe  IN (0,1)),
-
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE INDEX IF NOT EXISTS idx_burger_club_year ON burger_club(year);
-`);
 // =======================
 // Burger Club Tracker API
 // =======================
@@ -621,8 +624,10 @@ app.post("/api/burger-club", (req, res) => {
     String(b.additional_notes || ""), String(b.guests || "")
   );
 
+  // Determine the new row id robustly (better-sqlite3 returns lastInsertRowid)
+  const newId = (info && info.lastInsertRowid) || db.prepare("SELECT last_insert_rowid() as id").get().id;
+
   // If a photo was uploaded as a data URL, save it to disk and update photo_url
-  const newId = info.lastInsertRowid;
   if (b.photoData) {
     try {
       const m = b.photoData.match(/^data:(image\/[^;]+);base64,(.+)$/);
@@ -630,11 +635,17 @@ app.post("/api/burger-club", (req, res) => {
         const mime = m[1];
         const ext = mime.split("/")[1].replace("jpeg", "jpg");
         const data = Buffer.from(m[2], "base64");
+
+        // Ensure directory exists
+        const burgersDir = path.join(__dirname, "public", "burgers");
+        if (!fs.existsSync(burgersDir)) fs.mkdirSync(burgersDir, { recursive: true });
+
         const fname = `${newId}.${ext}`;
-        const outPath = path.join(__dirname, "public", "burgers", fname);
+        const outPath = path.join(burgersDir, fname);
         fs.writeFileSync(outPath, data);
         const pubPath = `/burgers/${fname}`;
         db.prepare(`UPDATE burger_club SET photo_url = ? WHERE id = ?`).run(pubPath, newId);
+        console.log(`Saved burger photo for id=${newId} -> ${outPath}`);
       }
     } catch (err) {
       console.warn("Failed to save burger photo:", err.message);
@@ -705,11 +716,14 @@ app.put("/api/burger-club/:id", (req, res) => {
         const mime = m[1];
         const ext = mime.split("/")[1].replace("jpeg", "jpg");
         const data = Buffer.from(m[2], "base64");
+        const burgersDir = path.join(__dirname, "public", "burgers");
+        if (!fs.existsSync(burgersDir)) fs.mkdirSync(burgersDir, { recursive: true });
         const fname = `${id}.${ext}`;
-        const outPath = path.join(__dirname, "public", "burgers", fname);
+        const outPath = path.join(burgersDir, fname);
         fs.writeFileSync(outPath, data);
         const pubPath = `/burgers/${fname}`;
         db.prepare(`UPDATE burger_club SET photo_url = ? WHERE id = ?`).run(pubPath, id);
+        console.log(`Saved burger photo for id=${id} -> ${outPath}`);
       }
     } catch (err) {
       console.warn("Failed to save burger photo:", err.message);
