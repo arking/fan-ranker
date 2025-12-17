@@ -1,0 +1,149 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>64 Option Ranker</title>
+   <link rel="stylesheet" href="/style.css?v=2" />
+
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <h1>64 Option Ranker</h1>
+        <div id="tenantStatus" class="muted"></div>
+      </header>
+
+      <section class="card">
+        <h2>Select your seat</h2>
+        <div class="row">
+          <select id="tenantSelect"></select>
+          <button id="btnSetTenant">Use this seat</button>
+        </div>
+        <div id="tenantMsg" class="muted"></div>
+      </section>
+
+      <nav class="tabs">
+  <button class="tab active" data-tab="vote">Vote</button>
+  <button class="tab" data-tab="brackets">Group Bracket</button>
+  <button class="tab" data-tab="personal">Personal Bracket</button>
+  <button class="tab" data-tab="madness">March Madness Bracket</button>
+  <button class="tab" data-tab="raw">Raw</button>
+  <button class="tab" data-tab="compare">Compare</button>
+
+</nav>
+
+
+      <main>
+        <section id="tab-vote" class="tabpane">
+          <div class="card">
+            <div class="row space">
+  <div>
+    <h2>Rank 5 options (1 = best, 5 = worst)</h2>
+    <div id="progress" class="muted"></div>
+  </div>
+  <div class="row">
+    <button id="btnSubmit" disabled>Submit rankings</button>
+    <button id="btnNext" class="ghost">Get next 5</button>
+  </div>
+</div>
+
+            </div>
+
+          <div class="rankArea">
+  <div class="rankHeader muted small">Drag each option into a rank slot (1 = best, 5 = worst).</div>
+  <div id="rankSlots" class="slots"></div>
+</div>
+
+<div class="muted small" style="margin: 8px 0;">Options</div>
+<div id="optionPool" class="grid"></div>
+
+
+            <div id="voteMsg" class="muted"></div>
+
+        </section>
+
+        <section id="tab-brackets" class="tabpane hidden">
+          <div class="card">
+            <div class="row space">
+              <h2>Popularity Brackets (4 × 16)</h2>
+              <button id="btnRefreshBrackets" class="ghost">Refresh</button>
+            </div>
+            <div id="bracketWrap"></div>
+          </div>
+        </section>
+        <section id="tab-madness" class="tabpane hidden fullwidth">
+
+
+  <div class="card">
+    <div>
+  <h2>March Madness Bracket (64 teams)</h2>
+  <div class="row" style="margin-top: 6px;">
+    <button id="btnUndoMadness" class="ghost">Undo</button>
+    <button id="btnRefreshMadness" class="ghost">Refresh</button>
+  </div>
+</div>
+    <div id="madnessWrap"></div>
+  </div>
+</section>
+<section id="tab-personal" class="tabpane hidden">
+  <div class="card">
+    <div class="row space">
+      <h2>Personal Bracket</h2>
+      <button id="btnRefreshPersonal" class="ghost">Refresh</button>
+    </div>
+    <div id="personalWrap"></div>
+  </div>
+</section>
+
+<section id="tab-compare" class="tabpane hidden">
+  <div class="card">
+    <div class="row space">
+      <div>
+        <h2>Compare</h2>
+        <div class="muted small">Compare the selected seat’s ranks vs other seats.</div>
+      </div>
+      <button id="btnRefreshCompare" class="ghost">Refresh</button>
+    </div>
+
+    <div class="row" style="margin-top: 10px;">
+      <input id="compareFilter" placeholder="filter by title…" />
+      <select id="compareSort">
+        <option value="mine">Sort by my rank</option>
+        <option value="delta">Sort by biggest delta vs avg</option>
+        <option value="avg">Sort by group average</option>
+      </select>
+      <select id="compareTop">
+        <option value="64">Show 64</option>
+        <option value="32">Show 32</option>
+        <option value="20">Show 20</option>
+      </select>
+    </div>
+
+    <div id="compareWrap" style="margin-top: 12px;"></div>
+  </div>
+</section>
+
+
+        <section id="tab-raw" class="tabpane hidden">
+          <div class="card">
+            <div class="row space">
+              <h2>Raw votes</h2>
+              <button id="btnRefreshRaw" class="ghost">Refresh</button>
+            </div>
+            <div class="row">
+              <input id="rawFilter" placeholder="filter (tenant or title)" />
+            </div>
+            <div id="rawTableWrap"></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="muted small">
+        
+      </footer>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

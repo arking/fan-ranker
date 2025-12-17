@@ -1,0 +1,642 @@
+[
+  {
+    "id": 1,
+    "title": "Tetsu",
+    "month": "June",
+    "year": 2019,
+    "location": "Tribeca",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRnAbZQr2-RqnpOgtjGoAiRArPXM_gEUciKyA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 2,
+    "title": "Minetta Tavern",
+    "month": "July",
+    "year": 2019,
+    "location": "West Village",
+    "photoUrl": "https://platform.ny.eater.com/wp-content/uploads/sites/6/chorus/uploads/chorus_asset/file/25021884/MinettaBurger2.jpg?quality=90&strip=all&crop=0.1953125,0,99.609375,100",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 3,
+    "title": "Diner",
+    "month": "November",
+    "year": 2019,
+    "location": "Williamsburg",
+    "photoUrl": "https://res.cloudinary.com/the-infatuation/image/upload/v1656119893/cms/reviews/diner/IMG_8819.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 4,
+    "title": "Emily",
+    "month": "December",
+    "year": 2019,
+    "location": "West Village",
+    "photoUrl": "https://i.insider.com/5e62c650a9f40c2b5b69b732?width=600&format=jpeg&auto=webp",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 5,
+    "title": "DB Bistro Moderne",
+    "month": "January",
+    "year": 2020,
+    "location": "Bryant Park",
+    "photoUrl": "https://images.ctfassets.net/1aemqu6a6t65/1YbXRTmktwzRVEap6muAEP/a58956d8c69560f94e867e1ff17d224c/dbbistro-burger-e-kheraj",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 6,
+    "title": "Burger club",
+    "month": "February",
+    "year": 2020,
+    "location": "Astoria",
+    "photoUrl": "https://img.cdn4dd.com/cdn-cgi/image/fit=cover,width=600,height=400,format=auto,quality=80/https://doordash-static.s3.amazonaws.com/media/store/header/8ba3fcb1-7adc-47db-96e4-9c769891e0d7.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 7,
+    "title": "COVID Virtual Zoom Burger",
+    "month": "March",
+    "year": 2020,
+    "location": "Home",
+    "photoUrl": "https://www.fda.gov/files/COVID%20testing%20policy%20drupal.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 8,
+    "title": "JG Melon",
+    "month": "July",
+    "year": 2020,
+    "location": "UES",
+    "photoUrl": "https://images.squarespace-cdn.com/content/v1/53cc1616e4b0f4361f8ace24/1515949248281-RLLKC3G8ZZT0G6LMCLBM/JG+Melon-bacon+cheeseburger-2.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 9,
+    "title": "Shake Shack",
+    "month": "August",
+    "year": 2020,
+    "location": "West Village",
+    "photoUrl": "https://cloudfront-us-east-1.images.arcpublishing.com/ajc/VQ5E7M224IK4GPNDSYUHEOOY2U.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 10,
+    "title": "Threes Brewing",
+    "month": "November",
+    "year": 2020,
+    "location": "Park Slope",
+    "photoUrl": "https://i0.wp.com/greenpointers.com/app/uploads/2023/12/gothamburger-e1701886130620.jpg?fit=1106%2C1044&ssl=1",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 11,
+    "title": "Virginia's",
+    "month": "August",
+    "year": 2021,
+    "location": "East Village",
+    "photoUrl": "https://images.squarespace-cdn.com/content/v1/54b04776e4b0978f55a264b3/1703783544268-MV9NJNPPO303V9EP7ONM/image-asset.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 12,
+    "title": "Lure Fishbar",
+    "month": "September",
+    "year": 2021,
+    "location": "SOHO",
+    "photoUrl": "https://3.bp.blogspot.com/_QEZbyOFJMO8/TNRXibhPpTI/AAAAAAAAHcQ/HkotwMkYW5w/s1600/IMG_3959.JPG",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 13,
+    "title": "Fairfax",
+    "month": "October",
+    "year": 2021,
+    "location": "West Village",
+    "photoUrl": "https://images.getbento.com/accounts/383f5b86b4921225889e21d1befad0fa/media/images/50039Medsker_HappyCooking_Fairfax_137.jpg?w=1200&fit=crop&auto=compress,format&cs=origin&h=600",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 14,
+    "title": "Royale",
+    "month": "November",
+    "year": 2021,
+    "location": "East village",
+    "photoUrl": "https://res.cloudinary.com/the-infatuation/image/upload/f_auto/q_auto/v1741717033/images/NYC_Royale_Burger_WillHartman_iPHoneContent_EDIT_01_p5etde.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 15,
+    "title": "David's Cafe",
+    "month": "December",
+    "year": 2021,
+    "location": "East village",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSv0exC9KpvDnxAWgDp1RnWHZ_QuqwBzWmGQg&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 16,
+    "title": "BK Jani",
+    "month": "January",
+    "year": 2022,
+    "location": "Williamsburg",
+    "photoUrl": "https://www.nydailynews.com/wp-content/uploads/2025/03/Bk-Jani-burger-and-fries.jpg?w=1800&resize=1800,1800",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 17,
+    "title": "Nowon",
+    "month": "February",
+    "year": 2022,
+    "location": "East Village",
+    "photoUrl": "https://images.squarespace-cdn.com/content/v1/666a5e76661d142b1258b0f3/b4b036ed-5025-499f-9ac7-d1e590d1ebaa/IMG_4688.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 18,
+    "title": "Au Cheval",
+    "month": "March",
+    "year": 2022,
+    "location": "Soho",
+    "photoUrl": "https://i.insider.com/577e6d89dd0895993f8b4bd6?width=1200&format=jpeg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 19,
+    "title": "Chop chee Yankees",
+    "month": "April",
+    "year": 2022,
+    "location": "Bronx",
+    "photoUrl": "https://hungryfan.com/cdn/shop/articles/Chopped-Cheese-Sandwich_1200x1200.jpg?v=1602929540",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 20,
+    "title": "Upland",
+    "month": "May",
+    "year": 2022,
+    "location": "Flatiron",
+    "photoUrl": "https://platform.ny.eater.com/wp-content/uploads/sites/6/chorus/uploads/chorus_asset/file/13080851/20150514-Emily_Burger-1.0.0.1506259977.jpg?quality=90&strip=all&crop=0%2C0.095814422592035%2C100%2C99.808371154816&w=2400",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 21,
+    "title": "Handcraft",
+    "month": "June",
+    "year": 2022,
+    "location": "Bryant Park",
+    "photoUrl": "https://d1w7312wesee68.cloudfront.net/2J4fGyRJk2V-X3sKjlQgGFAw8WIjxCN2jqHdh1k5krw/ext:webp/quality:85/plain/s3://toast-sites-resources-prod/restaurantImages/252fa972-407c-4092-a063-63dcb3a5b6f5/handcraft-og-hero.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 22,
+    "title": "Fraunces Tavern",
+    "month": "July",
+    "year": 2022,
+    "location": "Financial District",
+    "photoUrl": "https://drive.google.com/file/d/1m9AOXFG2Iv22wg8hsaGssLD1zmjUxsJW/view?usp=sharing",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 23,
+    "title": "Whitman's",
+    "month": "August",
+    "year": 2022,
+    "location": "Hudson Yards",
+    "photoUrl": "https://images.squarespace-cdn.com/content/v1/5addf0c49d5abbdf63b094c7/1525465383040-C85PHY1NNTGQ05O6IHC7/Whitmans_Sandwiches_TheHound_3a.jpg?format=500w",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 24,
+    "title": "Rolo's",
+    "month": "September",
+    "year": 2022,
+    "location": "Ridgewood",
+    "photoUrl": "https://s3-media0.fl.yelpcdn.com/bphoto/JJj49LzPbzmeHtivMA2v7w/348s.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 25,
+    "title": "The Spaniard",
+    "month": "October",
+    "year": 2022,
+    "location": "West Village",
+    "photoUrl": "https://media-cdn.tripadvisor.com/media/photo-s/15/38/82/30/smash-burger-double-double.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 26,
+    "title": "Golden Diner",
+    "month": "November",
+    "year": 2022,
+    "location": "Chinatown",
+    "photoUrl": "https://pyxis.nymag.com/v1/imgs/cc8/6ad/04815ec4f930476f91ebeec8e612a9a207-golden-diner-dinner-hom-burger.2x.rsquare.w570.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 27,
+    "title": "Marian's",
+    "month": "December",
+    "year": 2022,
+    "location": "Greenwhich Village",
+    "photoUrl": "https://s3-media0.fl.yelpcdn.com/bphoto/kwtaR60uzAak3KNmL39XgA/348s.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 28,
+    "title": "Raoul's",
+    "month": "January",
+    "year": 2023,
+    "location": "SOHO",
+    "photoUrl": "https://platform.ny.eater.com/wp-content/uploads/sites/6/chorus/uploads/chorus_asset/file/13078151/20150824-Raoul_s_burger_lede-2.0.0.1492291165.jpg?quality=90&strip=all&crop=0,10.811361570054,100,78.377276859893",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 29,
+    "title": "Bronx Brewery",
+    "month": "February",
+    "year": 2023,
+    "location": "East Village",
+    "photoUrl": "https://applications-media.feverup.com/image/upload/f_auto,w_720,h_720/fever2/plan/photo/c5b20c84-cfc0-11ec-9ccf-8ab61c59b45d.jpg",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 30,
+    "title": "Do Not Disturb",
+    "month": "March",
+    "year": 2023,
+    "location": "West Village",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTxvnSh3N51uh6_LMQUQdePEXdHJgjQw0TU7Q&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 31,
+    "title": "Oscar Wilde",
+    "month": "April",
+    "year": 2023,
+    "location": "NoMad",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 32,
+    "title": "Keens",
+    "month": "May",
+    "year": 2023,
+    "location": "Midtown",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 33,
+    "title": "Nobody Told Me",
+    "month": "June",
+    "year": 2023,
+    "location": "UWS",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 34,
+    "title": "Red Hook Tavern",
+    "month": "July",
+    "year": 2023,
+    "location": "Red Hook",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 35,
+    "title": "Happiest Hour",
+    "month": "August",
+    "year": 2023,
+    "location": "West Village",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 36,
+    "title": "Le Gratin",
+    "month": "September",
+    "year": 2023,
+    "location": "Financial District",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 37,
+    "title": "Mallard Drake",
+    "month": "October",
+    "year": 2023,
+    "location": "Greenpoint",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 38,
+    "title": "Spring Lounge/Burger By Day",
+    "month": "November",
+    "year": 2023,
+    "location": "Soho",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 39,
+    "title": "Olde City",
+    "month": "December",
+    "year": 2023,
+    "location": "Chelsea",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 40,
+    "title": "Peter Lugers",
+    "month": "January",
+    "year": 2024,
+    "location": "Williamsburg",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 41,
+    "title": "Donovan/s Pub",
+    "month": "February",
+    "year": 2024,
+    "location": "Woodside",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 42,
+    "title": "Manhatta",
+    "month": "March",
+    "year": 2024,
+    "location": "Fidi",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 43,
+    "title": "7th st Burger",
+    "month": "April",
+    "year": 2024,
+    "location": "Chelsea",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 44,
+    "title": "Long Island Bar",
+    "month": "May",
+    "year": 2024,
+    "location": "Brooklyn Heights",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 45,
+    "title": "Harlem Shake",
+    "month": "June",
+    "year": 2024,
+    "location": "Harlem",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 46,
+    "title": "Swoony's",
+    "month": "July",
+    "year": 2024,
+    "location": "Carroll Gardens",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 47,
+    "title": "Hoexter's",
+    "month": "August",
+    "year": 2024,
+    "location": "UES",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 48,
+    "title": "Smacking Burger",
+    "month": "September",
+    "year": 2024,
+    "location": "West Village",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 49,
+    "title": "Gus",
+    "month": "October",
+    "year": 2024,
+    "location": "Carroll Gardens",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 50,
+    "title": "Burger Joint",
+    "month": "November",
+    "year": 2024,
+    "location": "Midtown",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 51,
+    "title": "4 Charles",
+    "month": "December",
+    "year": 2024,
+    "location": "West Village",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 52,
+    "title": "Gotham",
+    "month": "January",
+    "year": 2025,
+    "location": "Greenpoint",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 53,
+    "title": "Pastis",
+    "month": "February",
+    "year": 2025,
+    "location": "Meatpacking",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 54,
+    "title": "Gallagher Steakhouse",
+    "month": "March",
+    "year": 2025,
+    "location": "Midtown",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 55,
+    "title": "Emmy/s Squared",
+    "month": "April",
+    "year": 2025,
+    "location": "Williamsburg",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 56,
+    "title": "Lions Bar",
+    "month": "May",
+    "year": 2025,
+    "location": "East Village",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 57,
+    "title": "Cozy Royale",
+    "month": "June",
+    "year": 2025,
+    "location": "Williamsburg",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 58,
+    "title": "Le B",
+    "month": "July",
+    "year": 2025,
+    "location": "West Village",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 59,
+    "title": "NADC",
+    "month": "August",
+    "year": 2025,
+    "location": "SOHO",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 60,
+    "title": "Corner Bistro",
+    "month": "September",
+    "year": 2025,
+    "location": "West Village",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 61,
+    "title": "Skinny Louis",
+    "month": "October",
+    "year": 2025,
+    "location": "Flatiron",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 62,
+    "title": "Loring Place",
+    "month": "November",
+    "year": 2025,
+    "location": "Greenwich Village",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 63,
+    "title": "Lord's",
+    "month": "December",
+    "year": 2025,
+    "location": "Greenwhich Village",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  },
+  {
+    "id": 64,
+    "title": "TBD",
+    "month": "January",
+    "year": 2026,
+    "location": "TBD",
+    "photoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9L2m8lWrGdBg_-8gW1iiOpy0v9ScwdZs3qA&s",
+    "Additional_Notes": "x",
+    "Attendees": "x"
+  }
+]
