@@ -1407,6 +1407,12 @@ function openBurgerModal(mode, row) {
   $("bcLocation").value = row?.location ?? "";
   $("bcBorough").value = row?.borough ?? "Manhattan";
 
+  // new fields
+  $("bcNotes").value = row?.additional_notes ?? row?.additionalNotes ?? "";
+  $("bcGuests").value = row?.guests ?? "";
+  // clear file input preview
+  if ($("bcPhoto")) $("bcPhoto").value = "";
+
   $("bcPaul").checked = !!row?.paul;
   $("bcJob").checked = !!row?.job;
   $("bcJohn").checked = !!row?.john;
@@ -1440,6 +1446,8 @@ function burgerPayloadFromForm() {
     andrew: $("bcAndrew").checked,
     jj: $("bcJJ").checked,
     joe: $("bcJoe").checked,
+    additional_notes: $("bcNotes")?.value || "",
+    guests: $("bcGuests")?.value || "",
   };
 }
 
@@ -1548,8 +1556,25 @@ async function loadBurgerClub() {
 async function saveBurgerClub() {
   const msg = $("burgerMsg");
   setMsg(msg, "");
-
   const payload = burgerPayloadFromForm();
+
+  // If a file is selected, read as data URL and attach as photoData
+  const fileInput = $("bcPhoto");
+  if (fileInput && fileInput.files && fileInput.files.length) {
+    const file = fileInput.files[0];
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = reject;
+        fr.readAsDataURL(file);
+      });
+      payload.photoData = dataUrl;
+    } catch (err) {
+      // non-fatal: continue without photo
+      console.warn("Failed to read photo file:", err);
+    }
+  }
 
   try {
     if (bcEditingId) {

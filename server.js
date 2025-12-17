@@ -79,6 +79,31 @@ CREATE TABLE IF NOT EXISTS burger_club (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+// Ensure additional columns exist: photo_url, additional_notes, guests
+try {
+  const cols = db.prepare("PRAGMA table_info(burger_club)").all();
+  const colNames = cols.map((c) => c.name);
+  if (!colNames.includes("photo_url")) {
+    db.prepare("ALTER TABLE burger_club ADD COLUMN photo_url TEXT").run();
+  }
+  if (!colNames.includes("additional_notes")) {
+    db.prepare("ALTER TABLE burger_club ADD COLUMN additional_notes TEXT").run();
+  }
+  if (!colNames.includes("guests")) {
+    db.prepare("ALTER TABLE burger_club ADD COLUMN guests TEXT").run();
+  }
+} catch (err) {
+  console.warn("Could not migrate burger_club columns:", err.message);
+}
+
+// Ensure public/burgers directory exists for uploads
+try {
+  const burgersDir = path.join(__dirname, "public", "burgers");
+  if (!fs.existsSync(burgersDir)) fs.mkdirSync(burgersDir, { recursive: true });
+} catch (err) {
+  console.warn("Could not ensure public/burgers directory:", err.message);
+}
+
 CREATE INDEX IF NOT EXISTS idx_burger_club_year ON burger_club(year);
 `);
 
@@ -552,6 +577,7 @@ app.get("/api/burger-club", (req, res) => {
       `SELECT
         id, year, month, restaurant, location, borough, rating,
         paul, job, john, andrew, jj, joe,
+        photo_url, additional_notes, guests,
         created_at, updated_at
       FROM burger_club
       ORDER BY id DESC`
@@ -584,17 +610,38 @@ app.post("/api/burger-club", (req, res) => {
 
   const stmt = db.prepare(`
     INSERT INTO burger_club
-      (year, month, restaurant, location, borough, rating, paul, job, john, andrew, jj, joe, updated_at)
+      (year, month, restaurant, location, borough, rating, paul, job, john, andrew, jj, joe, additional_notes, guests, updated_at)
     VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
   `);
 
   const info = stmt.run(
     year, month, restaurant, location, borough, rating,
-    to01(b.paul), to01(b.job), to01(b.john), to01(b.andrew), to01(b.jj), to01(b.joe)
+    to01(b.paul), to01(b.job), to01(b.john), to01(b.andrew), to01(b.jj), to01(b.joe),
+    String(b.additional_notes || ""), String(b.guests || "")
   );
 
-  const row = db.prepare(`SELECT * FROM burger_club WHERE id = ?`).get(info.lastInsertRowid);
+  // If a photo was uploaded as a data URL, save it to disk and update photo_url
+  const newId = info.lastInsertRowid;
+  if (b.photoData) {
+    try {
+      const m = b.photoData.match(/^data:(image\/[^;]+);base64,(.+)$/);
+      if (m) {
+        const mime = m[1];
+        const ext = mime.split("/")[1].replace("jpeg", "jpg");
+        const data = Buffer.from(m[2], "base64");
+        const fname = `${newId}.${ext}`;
+        const outPath = path.join(__dirname, "public", "burgers", fname);
+        fs.writeFileSync(outPath, data);
+        const pubPath = `/burgers/${fname}`;
+        db.prepare(`UPDATE burger_club SET photo_url = ? WHERE id = ?`).run(pubPath, newId);
+      }
+    } catch (err) {
+      console.warn("Failed to save burger photo:", err.message);
+    }
+  }
+
+  const row = db.prepare(`SELECT * FROM burger_club WHERE id = ?`).get(newId);
   res.json({ ok: true, row });
 });
 
@@ -639,13 +686,35 @@ app.put("/api/burger-club/:id", (req, res) => {
       andrew = ?,
       jj = ?,
       joe = ?,
+      additional_notes = ?,
+      guests = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
     year, month, restaurant, location, borough, rating,
     to01(b.paul), to01(b.job), to01(b.john), to01(b.andrew), to01(b.jj), to01(b.joe),
+    String(b.additional_notes || ""), String(b.guests || ""),
     id
   );
+
+  // If photoData provided, save and update photo_url
+  if (b.photoData) {
+    try {
+      const m = b.photoData.match(/^data:(image\/[^;]+);base64,(.+)$/);
+      if (m) {
+        const mime = m[1];
+        const ext = mime.split("/")[1].replace("jpeg", "jpg");
+        const data = Buffer.from(m[2], "base64");
+        const fname = `${id}.${ext}`;
+        const outPath = path.join(__dirname, "public", "burgers", fname);
+        fs.writeFileSync(outPath, data);
+        const pubPath = `/burgers/${fname}`;
+        db.prepare(`UPDATE burger_club SET photo_url = ? WHERE id = ?`).run(pubPath, id);
+      }
+    } catch (err) {
+      console.warn("Failed to save burger photo:", err.message);
+    }
+  }
 
   const row = db.prepare(`SELECT * FROM burger_club WHERE id = ?`).get(id);
   res.json({ ok: true, row });

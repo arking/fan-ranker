@@ -1,5 +1,8 @@
 :root {
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  --border: #232a3c;
+  --muted: #a6b1cf;
+  --accent: #3adca0;
 }
 
 body {
@@ -485,18 +488,53 @@ td {
 
 /* Connector line */
 .mmGame::after {
-  content:"";
-  position:absolute;
-  right:-14px;
-  top:50%;
-  width:14px;
-  height:1px;
-  background:#2a324a;
-  opacity:0.6;
+  content: "";
+  position: absolute;
+  right: -26px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
 }
 .mmRegionRounds.right .mmGame::after {
-  right:auto;
-  left:-14px;
+  right: auto;
+  left: -26px;
+}
+
+/* Vertical connector spine to link games vertically */
+.mmGame::before {
+  content: "";
+  position: absolute;
+  right: -6px;
+  top: -9px;
+  width: 2px;
+  height: calc(100% + 18px);
+  background: linear-gradient(180deg, rgba(58,220,160,0.18), rgba(58,220,160,0.06));
+  border-radius: 2px;
+  opacity: 0.85;
+}
+.mmRegionRounds.right .mmGame::before {
+  right: auto;
+  left: -6px;
+}
+
+/* Dim spine on single-game boundaries */
+.mmGame:first-child::before,
+.mmGame:last-child::before {
+  opacity: 0.45;
+}
+
+/* Highlight connectors when a team is picked */
+.mmTeam.picked ~ .mmTeam,
+.mmTeam.picked {
+  /* keep picked appearance */
+}
+.mmTeam.picked + .mmTeam {}
+.mmTeam.picked {
+  box-shadow: 0 6px 18px rgba(58,220,160,0.08) inset;
 }
 
 /* Team row */
