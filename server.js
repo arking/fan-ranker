@@ -2,28 +2,36 @@ const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const { nanoid } = require("nanoid");
-const Database = require("better-sqlite3");
+const { Pool } = require('pg');
 
 const PORT = process.env.PORT || 3000;
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, "app.db");
+const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://dev-local:password@localhost:5432/fan_ranker';
 const OPTIONS_PATH = path.join(__dirname, "data", "options.json");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-const db = new Database(DB_PATH);
-db.pragma("journal_mode = WAL");
+const pool = new Pool({ connectionString: DATABASE_URL });
 
-// --- Schema ---
-db.exec(`
-CREATE TABLE IF NOT EXISTS tenants (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+async function initDb() {
+  // Check if tables exist
+  const tableRes = await pool.query(`
+    SELECT table_name FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name IN ('tenants', 'options', 'votes', 'burger_club')
+  `);
+  const existingTables = tableRes.rows.map(r => r.table_name);
+
+  if (!existingTables.includes('tenants')) {
+    // --- Schema ---
+    await pool.query(`
+CREATE TABLE tenants (
+  id SERIAL PRIMARY KEY,
   name TEXT UNIQUE NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS options (
-  id INTEGER PRIMARY KEY,
+CREATE TABLE options (
+  id SERIAL PRIMARY KEY,
   title TEXT NOT NULL,
   month TEXT NOT NULL,
   year INTEGER NOT NULL,
@@ -33,34 +41,25 @@ CREATE TABLE IF NOT EXISTS options (
   attendees TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS votes (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE votes (
+  id SERIAL PRIMARY KEY,
   tenant_id INTEGER NOT NULL,
   round_id TEXT NOT NULL,
   option_id INTEGER NOT NULL,
   rank INTEGER NOT NULL CHECK(rank BETWEEN 1 AND 5),
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  weight REAL NOT NULL DEFAULT 1,
   FOREIGN KEY(tenant_id) REFERENCES tenants(id),
   FOREIGN KEY(option_id) REFERENCES options(id)
 );
-CREATE INDEX IF NOT EXISTS idx_votes_tenant_option ON votes(tenant_id, option_id);
-CREATE INDEX IF NOT EXISTS idx_votes_created ON votes(created_at);
+CREATE INDEX idx_votes_tenant_option ON votes(tenant_id, option_id);
+CREATE INDEX idx_votes_created ON votes(created_at);
 `);
 
-// --- Migrate votes table to add weight column if missing ---
-try {
-  const cols = db.prepare("PRAGMA table_info(votes)").all();
-  if (!cols.find((c) => c.name === "weight")) {
-    db.prepare("ALTER TABLE votes ADD COLUMN weight REAL NOT NULL DEFAULT 1").run();
-    console.log("Migrated: added votes.weight column");
-  }
-} catch (err) {
-  console.warn("Could not ensure votes.weight column:", err.message);
-}
-// --- Burger Club Tracker table ---
-db.exec(`
-CREATE TABLE IF NOT EXISTS burger_club (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,       -- this is your # (1,2,3...)
+    // --- Burger Club Tracker table ---
+    await pool.query(`
+CREATE TABLE burger_club (
+  id SERIAL PRIMARY KEY,
   year INTEGER NOT NULL CHECK(year BETWEEN 2019 AND 2026),
   month TEXT NOT NULL,
   restaurant TEXT NOT NULL,
@@ -75,140 +74,110 @@ CREATE TABLE IF NOT EXISTS burger_club (
   jj   INTEGER NOT NULL DEFAULT 0 CHECK(jj   IN (0,1)),
   joe  INTEGER NOT NULL DEFAULT 0 CHECK(joe  IN (0,1)),
 
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  photo_url TEXT,
+  additional_notes TEXT,
+  guests TEXT
 );
-
 `);
 
-// Ensure additional columns exist: photo_url, additional_notes, guests
-try {
-  const cols = db.prepare("PRAGMA table_info(burger_club)").all();
-  const colNames = cols.map((c) => c.name);
-  if (!colNames.includes("photo_url")) {
-    db.prepare("ALTER TABLE burger_club ADD COLUMN photo_url TEXT").run();
+    await pool.query("CREATE INDEX idx_burger_club_year ON burger_club(year);");
+
+    // --- Seed Tenants ---
+    const names = [
+      "Andrew King",
+      "Paul Morse",
+      "John Wainwright",
+      "Joe Wainwright",
+      "Job Gregory",
+      "JJ Greco"
+    ];
+    for (const name of names) {
+      await pool.query("INSERT INTO tenants (name) VALUES ($1)", [name]);
+    }
+    console.log(`Seeded tenants: ${names.length}`);
+
+    // --- Seed options from JSON ---
+    const raw = fs.readFileSync(OPTIONS_PATH, "utf-8");
+    const options = JSON.parse(raw);
+
+    if (!Array.isArray(options) || options.length !== 64) {
+      console.warn(
+        `WARNING: options.json must contain exactly 64 items. Found ${options?.length}.`
+      );
+    }
+
+    for (const opt of options) {
+      await pool.query(`
+        INSERT INTO options (id, title, month, year, location, photo_url, additional_notes, attendees)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [opt.id, opt.title, opt.month, opt.year, opt.location, opt.photoUrl, opt.Additional_Notes, opt.Attendees]);
+    }
+    console.log(`Seeded options: ${options.length}`);
   }
-  if (!colNames.includes("additional_notes")) {
-    db.prepare("ALTER TABLE burger_club ADD COLUMN additional_notes TEXT").run();
-  }
-  if (!colNames.includes("guests")) {
-    db.prepare("ALTER TABLE burger_club ADD COLUMN guests TEXT").run();
-  }
-} catch (err) {
-  console.warn("Could not migrate burger_club columns:", err.message);
 }
 
-// Ensure public/burgers directory exists for uploads
-try {
-  const burgersDir = path.join(__dirname, "public", "burgers");
-  if (!fs.existsSync(burgersDir)) fs.mkdirSync(burgersDir, { recursive: true });
-} catch (err) {
-  console.warn("Could not ensure public/burgers directory:", err.message);
-}
-
-// Create index for burger_club year if missing
-try {
-  db.exec("CREATE INDEX IF NOT EXISTS idx_burger_club_year ON burger_club(year);");
-} catch (err) {
-  console.warn("Could not create idx_burger_club_year:", err.message);
-}
-
-// --- Seed Tenants if empty ---
-const tenantCount = db.prepare("SELECT COUNT(*) as c FROM tenants").get().c;
-if (tenantCount === 0) {
-  const names = [
-    "Andrew King",
-    "Paul Morse",
-    "John Wainwright",
-    "Joe Wainwright",
-    "Job Gregory",
-    "JJ Greco"
-  ];
-  const ins = db.prepare("INSERT INTO tenants (name) VALUES (?)");
-  const tx = db.transaction(() => names.forEach((n) => ins.run(n)));
-  tx();
-  console.log(`Seeded tenants: ${names.length}`);
-}
-
-// --- Seed options from JSON if empty ---
-const optionCount = db.prepare("SELECT COUNT(*) as c FROM options").get().c;
-if (optionCount === 0) {
-  const raw = fs.readFileSync(OPTIONS_PATH, "utf-8");
-  const options = JSON.parse(raw);
-
-  if (!Array.isArray(options) || options.length !== 64) {
-    console.warn(
-      `WARNING: options.json must contain exactly 64 items. Found ${options?.length}.`
-    );
-  }
-
-  const ins = db.prepare(`
-    INSERT INTO options (id, title, month, year, location, photo_url, additional_notes, attendees)
-    VALUES (@id, @title, @month, @year, @location, @photoUrl, @Additional_Notes, @Attendees)
-  `);
-
-  const tx = db.transaction((rows) => rows.forEach((r) => ins.run(r)));
-  tx(options);
-  console.log(`Seeded options: ${options.length}`);
-}
+initDb().catch(console.error);
 
 // --- Tenant helper ---
-function requireTenant(req, res, next) {
+async function requireTenant(req, res, next) {
   const tenantId = Number(req.header("x-tenant-id"));
   if (!tenantId) return res.status(400).json({ error: "Missing X-Tenant-Id header" });
 
-  const tenant = db.prepare("SELECT id, name FROM tenants WHERE id = ?").get(tenantId);
-  if (!tenant) return res.status(400).json({ error: "Invalid tenant" });
+  const result = await pool.query("SELECT id, name FROM tenants WHERE id = $1", [tenantId]);
+  if (result.rows.length === 0) return res.status(400).json({ error: "Invalid tenant" });
 
-  req.tenant = tenant;
+  req.tenant = result.rows[0];
   next();
 }
 
 // --- API: list tenants ---
-app.get("/api/tenants", (req, res) => {
-  const rows = db.prepare("SELECT id, name FROM tenants ORDER BY id").all();
-  res.json({ tenants: rows });
+app.get("/api/tenants", async (req, res) => {
+  const result = await pool.query("SELECT id, name FROM tenants ORDER BY id");
+  res.json({ tenants: result.rows });
 });
 
 // --- Progress: how many times each option ranked by tenant ---
-app.get("/api/progress", requireTenant, (req, res) => {
-  const rows = db
-    .prepare(
-      `SELECT b.id as option_id, COUNT(v.id) as times_ranked
-       FROM burger_club b
-       LEFT JOIN votes v
-         ON v.option_id = b.id AND v.tenant_id = ?
-       GROUP BY b.id
-       ORDER BY b.id`
-    )
-    .all(req.tenant.id);
+app.get("/api/progress", requireTenant, async (req, res) => {
+  const result = await pool.query(
+    `SELECT b.id as option_id, COUNT(v.id) as times_ranked
+     FROM burger_club b
+     LEFT JOIN votes v
+       ON v.option_id = b.id AND v.tenant_id = $1
+     GROUP BY b.id
+     ORDER BY b.id`,
+    [req.tenant.id]
+  );
 
-  const done = rows.every((r) => r.times_ranked >= 2);
+  const rows = result.rows;
+  const done = rows.every((r) => parseInt(r.times_ranked) >= 2);
 
   res.json({
     tenant: req.tenant,
     done,
     totalOptions: rows.length,
-    remainingTo2x: rows.filter((r) => r.times_ranked < 2).length
+    remainingTo2x: rows.filter((r) => parseInt(r.times_ranked) < 2).length
   });
 });
 
 // --- Get next randomized set of 5 ---
 // Prioritize options ranked < 2 times by this tenant, then fill randomly.
-app.get("/api/next", requireTenant, (req, res) => {
+app.get("/api/next", requireTenant, async (req, res) => {
   const tenantId = req.tenant.id;
-  const counts = db
-    .prepare(
-      `SELECT
-        b.id, b.restaurant as title, b.month, b.year, b.location,
-        b.photo_url, b.additional_notes,
-        COUNT(v.id) as times_ranked
-       FROM burger_club b
-       LEFT JOIN votes v
-         ON v.option_id = b.id AND v.tenant_id = ?
-       GROUP BY b.id`
-    )
-    .all(tenantId);
+  const result = await pool.query(
+    `SELECT
+      b.id, b.restaurant as title, b.month, b.year, b.location,
+      b.photo_url, b.additional_notes,
+      COUNT(v.id) as times_ranked
+     FROM burger_club b
+     LEFT JOIN votes v
+       ON v.option_id = b.id AND v.tenant_id = $1
+     GROUP BY b.id`,
+    [tenantId]
+  );
+
+  const counts = result.rows;
 
   function shuffle(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
@@ -218,8 +187,8 @@ app.get("/api/next", requireTenant, (req, res) => {
     return arr;
   }
 
-  const need = shuffle(counts.filter((c) => c.times_ranked < 2));
-  const rest = shuffle(counts.filter((c) => c.times_ranked >= 2));
+  const need = shuffle(counts.filter((c) => parseInt(c.times_ranked) < 2));
+  const rest = shuffle(counts.filter((c) => parseInt(c.times_ranked) >= 2));
 
   const pick = [...need, ...rest].slice(0, 5).map((o) => ({
     id: o.id,
@@ -243,7 +212,7 @@ app.get("/api/next", requireTenant, (req, res) => {
 });
 
 // --- Submit rankings for a round ---
-app.post("/api/vote", requireTenant, (req, res) => {
+app.post("/api/vote", requireTenant, async (req, res) => {
   const tenantId = req.tenant.id;
   const { roundId, rankings } = req.body || {};
 
@@ -262,16 +231,12 @@ app.post("/api/vote", requireTenant, (req, res) => {
 
   const optSet = new Set(optionIds);
   if (optSet.size !== 5) return res.status(400).json({ error: "Duplicate options" });
-  const existing = db
-    .prepare(`SELECT id FROM burger_club WHERE id IN (${optionIds.map(() => "?").join(",")})`)
-    .all(...optionIds)
-    .map((r) => r.id);
+
+  const placeholders = optionIds.map((_, i) => `$${i + 1}`).join(",");
+  const existingRes = await pool.query(`SELECT id FROM burger_club WHERE id IN (${placeholders})`, optionIds);
+  const existing = existingRes.rows.map((r) => r.id);
 
   if (existing.length !== 5) return res.status(400).json({ error: "Unknown optionId" });
-
-  const ins = db.prepare(
-    "INSERT INTO votes (tenant_id, round_id, option_id, rank, weight) VALUES (?, ?, ?, ?, ?)"
-  );
 
   // Map tenant full name -> burger_club column
   const TENANT_NAME_TO_FIELD = {
@@ -285,18 +250,22 @@ app.post("/api/vote", requireTenant, (req, res) => {
 
   const tenantField = TENANT_NAME_TO_FIELD[req.tenant.name] || null;
 
-  const tx = db.transaction(() => {
-    rankings.forEach((r) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const r of rankings) {
       // determine attendance for this tenant for the option
       let attended = false;
 
       try {
-        const bcRow = db.prepare("SELECT * FROM burger_club WHERE id = ?").get(r.optionId);
-        if (bcRow && tenantField && (bcRow[tenantField] === 1 || bcRow[tenantField] === "1" || bcRow[tenantField] === true)) {
+        const bcRes = await client.query("SELECT * FROM burger_club WHERE id = $1", [r.optionId]);
+        const bcRow = bcRes.rows[0];
+        if (bcRow && tenantField && (bcRow[tenantField] === 1 || bcRow[tenantField] === '1' || bcRow[tenantField] === true)) {
           attended = true;
         } else {
           // fallback to options.attendees text
-          const opt = db.prepare("SELECT attendees FROM options WHERE id = ?").get(r.optionId);
+          const optRes = await client.query("SELECT attendees FROM options WHERE id = $1", [r.optionId]);
+          const opt = optRes.rows[0];
           if (opt && opt.attendees) {
             const attStr = String(opt.attendees).toLowerCase();
             if (attStr.includes(String(req.tenant.name).toLowerCase())) attended = true;
@@ -308,36 +277,44 @@ app.post("/api/vote", requireTenant, (req, res) => {
       }
 
       const weight = attended ? 1 : 0.5;
-      ins.run(tenantId, roundId, r.optionId, r.rank, weight);
-    });
-  });
-
-  tx();
-  res.json({ ok: true });
+      await client.query(
+        "INSERT INTO votes (tenant_id, round_id, option_id, rank, weight) VALUES ($1, $2, $3, $4, $5)",
+        [tenantId, roundId, r.optionId, r.rank, weight]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: "Database error" });
+  } finally {
+    client.release();
+  }
 });
 
 // --- Brackets across all tenants ---
 // popularity score: average points where rank 1=5 points ... rank 5=1 point
-app.get("/api/brackets", (req, res) => {
-  const rows = db
-    .prepare(
-      `SELECT
-        b.id, b.restaurant as title, b.month, b.year, b.location, b.photo_url,
-        b.additional_notes,
-        COALESCE(SUM(v.weight),0) as votes,
-        SUM((6 - v.rank) * v.weight) / NULLIF(SUM(v.weight),0) as avg_points,
-        SUM(v.rank * v.weight) / NULLIF(SUM(v.weight),0) as avg_rank
-      FROM burger_club b
-      LEFT JOIN votes v ON v.option_id = b.id
-      GROUP BY b.id`
-    )
-    .all();
+app.get("/api/brackets", async (req, res) => {
+  const result = await pool.query(
+    `SELECT
+      b.id, b.restaurant as title, b.month, b.year, b.location, b.photo_url,
+      b.additional_notes,
+      COALESCE(SUM(v.weight),0) as votes,
+      SUM((6 - v.rank) * v.weight) / NULLIF(SUM(v.weight),0) as avg_points,
+      SUM(v.rank * v.weight) / NULLIF(SUM(v.weight),0) as avg_rank
+    FROM burger_club b
+    LEFT JOIN votes v ON v.option_id = b.id
+    GROUP BY b.id`
+  );
+
+  const rows = result.rows;
 
   rows.sort((a, b) => {
-    const ap = a.avg_points ?? 0;
-    const bp = b.avg_points ?? 0;
+    const ap = parseFloat(a.avg_points) ?? 0;
+    const bp = parseFloat(b.avg_points) ?? 0;
     if (bp !== ap) return bp - ap;
-    if ((b.votes ?? 0) !== (a.votes ?? 0)) return (b.votes ?? 0) - (a.votes ?? 0);
+    if ((parseFloat(b.votes) ?? 0) !== (parseFloat(a.votes) ?? 0)) return (parseFloat(b.votes) ?? 0) - (parseFloat(a.votes) ?? 0);
     return String(a.title).localeCompare(String(b.title));
   });
 
@@ -396,45 +373,46 @@ app.get("/api/brackets", (req, res) => {
 
 // --- Personal bracket (per-tenant only) ---
 // IMPORTANT: must be registered before the SPA catch-all below
-app.get("/api/personal-bracket", requireTenant, (req, res) => {
+app.get("/api/personal-bracket", requireTenant, async (req, res) => {
   const tenantId = req.tenant.id;
 
-  const rows = db
-    .prepare(
-      `SELECT
-        o.id,
-        o.restaurant as title,
-        o.month,
-        o.year,
-        o.location,
-        o.photo_url,
-        o.additional_notes,
-        -- build a comma-separated attendees string from tenant boolean columns
-        RTRIM(
-          (CASE WHEN o.paul = 1 THEN 'Paul Morse,' ELSE '' END) ||
-          (CASE WHEN o.job = 1 THEN 'Job Gregory,' ELSE '' END) ||
-          (CASE WHEN o.john = 1 THEN 'John Wainwright,' ELSE '' END) ||
-          (CASE WHEN o.andrew = 1 THEN 'Andrew King,' ELSE '' END) ||
-          (CASE WHEN o.jj = 1 THEN 'JJ Greco,' ELSE '' END) ||
-          (CASE WHEN o.joe = 1 THEN 'Joe Wainwright,' ELSE '' END)
-        , ',') as attendees,
-        COALESCE(SUM(v.weight),0) as votes,
-        CASE WHEN SUM(v.weight) IS NULL OR SUM(v.weight) = 0 THEN NULL
-             ELSE SUM((6 - v.rank) * v.weight) / SUM(v.weight) END as avg_points,
-        CASE WHEN SUM(v.weight) IS NULL OR SUM(v.weight) = 0 THEN NULL
-             ELSE SUM(v.rank * v.weight) / SUM(v.weight) END as avg_rank
-      FROM burger_club o
-      JOIN votes v
-        ON v.option_id = o.id AND v.tenant_id = ?
-      GROUP BY o.id`
-    )
-    .all(tenantId);
+  const result = await pool.query(
+    `SELECT
+      o.id,
+      o.restaurant as title,
+      o.month,
+      o.year,
+      o.location,
+      o.photo_url,
+      o.additional_notes,
+      -- build a comma-separated attendees string from tenant boolean columns
+      RTRIM(
+        (CASE WHEN o.paul = 1 THEN 'Paul Morse,' ELSE '' END) ||
+        (CASE WHEN o.job = 1 THEN 'Job Gregory,' ELSE '' END) ||
+        (CASE WHEN o.john = 1 THEN 'John Wainwright,' ELSE '' END) ||
+        (CASE WHEN o.andrew = 1 THEN 'Andrew King,' ELSE '' END) ||
+        (CASE WHEN o.jj = 1 THEN 'JJ Greco,' ELSE '' END) ||
+        (CASE WHEN o.joe = 1 THEN 'Joe Wainwright,' ELSE '' END)
+      , ',') as attendees,
+      COALESCE(SUM(v.weight),0) as votes,
+      CASE WHEN SUM(v.weight) IS NULL OR SUM(v.weight) = 0 THEN NULL
+           ELSE SUM((6 - v.rank) * v.weight) / SUM(v.weight) END as avg_points,
+      CASE WHEN SUM(v.weight) IS NULL OR SUM(v.weight) = 0 THEN NULL
+           ELSE SUM(v.rank * v.weight) / SUM(v.weight) END as avg_rank
+    FROM burger_club o
+    JOIN votes v
+      ON v.option_id = o.id AND v.tenant_id = $1
+    GROUP BY o.id`,
+    [tenantId]
+  );
+
+  const rows = result.rows;
 
   rows.sort((a, b) => {
-    const ap = a.avg_points ?? 0;
-    const bp = b.avg_points ?? 0;
+    const ap = parseFloat(a.avg_points) ?? 0;
+    const bp = parseFloat(b.avg_points) ?? 0;
     if (bp !== ap) return bp - ap;
-    if ((b.votes ?? 0) !== (a.votes ?? 0)) return (b.votes ?? 0) - (a.votes ?? 0);
+    if ((parseFloat(b.votes) ?? 0) !== (parseFloat(a.votes) ?? 0)) return (parseFloat(b.votes) ?? 0) - (parseFloat(a.votes) ?? 0);
     return String(a.title).localeCompare(String(b.title));
   });
 
@@ -470,92 +448,95 @@ app.get("/api/personal-bracket", requireTenant, (req, res) => {
 });
 
 // --- Raw votes ---
-app.get("/api/raw", (req, res) => {
+app.get("/api/raw", async (req, res) => {
   const limit = Math.min(Number(req.query.limit || 5000), 20000);
 
-  const rows = db
-    .prepare(
-      `SELECT
-        v.id as vote_id,
-        v.created_at,
-        v.round_id,
-        v.rank,
-        v.weight,
-        v.tenant_id,
-        t.name as tenant_name,
-        COALESCE(b.id, o.id) as option_id,
-        COALESCE(b.restaurant, o.title) as option_title,
-        COALESCE(b.month, o.month) as option_month,
-        COALESCE(b.year, o.year) as option_year,
-        COALESCE(b.location, o.location) as option_location,
-        COALESCE(b.photo_url, o.photo_url) as option_photo
-      FROM votes v
-      JOIN tenants t ON t.id = v.tenant_id
-      LEFT JOIN burger_club b ON b.id = v.option_id
-      LEFT JOIN options o ON o.id = v.option_id
-      ORDER BY v.created_at DESC
-      LIMIT ?`
-    )
-    .all(limit);
+  const result = await pool.query(
+    `SELECT
+      v.id as vote_id,
+      v.created_at,
+      v.round_id,
+      v.rank,
+      v.weight,
+      v.tenant_id,
+      t.name as tenant_name,
+      COALESCE(b.id, o.id) as option_id,
+      COALESCE(b.restaurant, o.title) as option_title,
+      COALESCE(b.month, o.month) as option_month,
+      COALESCE(b.year, o.year) as option_year,
+      COALESCE(b.location, o.location) as option_location,
+      COALESCE(b.photo_url, o.photo_url) as option_photo
+    FROM votes v
+    JOIN tenants t ON t.id = v.tenant_id
+    LEFT JOIN burger_club b ON b.id = v.option_id
+    LEFT JOIN options o ON o.id = v.option_id
+    ORDER BY v.created_at DESC
+    LIMIT $1`,
+    [limit]
+  );
 
-  res.json({ rows });
+  res.json({ rows: result.rows });
 });
 
 // --- Delete all votes for current tenant (requires tenant) ---
-app.delete("/api/votes", requireTenant, (req, res) => {
-  const info = db.prepare("DELETE FROM votes WHERE tenant_id = ?").run(req.tenant.id);
-  res.json({ deleted: info.changes });
+app.delete("/api/votes", requireTenant, async (req, res) => {
+  const result = await pool.query("DELETE FROM votes WHERE tenant_id = $1", [req.tenant.id]);
+  res.json({ deleted: result.rowCount });
 });
 
 // --- Delete a specific vote by id (tenant may only delete their own vote) ---
-app.delete("/api/vote/:id", requireTenant, (req, res) => {
+app.delete("/api/vote/:id", requireTenant, async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: "Invalid id" });
 
-  const row = db.prepare("SELECT tenant_id FROM votes WHERE id = ?").get(id);
-  if (!row) return res.status(404).json({ error: "Not found" });
+  const rowRes = await pool.query("SELECT tenant_id FROM votes WHERE id = $1", [id]);
+  if (rowRes.rows.length === 0) return res.status(404).json({ error: "Not found" });
 
+  const row = rowRes.rows[0];
   if (row.tenant_id !== req.tenant.id) {
     return res.status(403).json({ error: "Can only delete your own votes" });
   }
 
-  const info = db.prepare("DELETE FROM votes WHERE id = ?").run(id);
-  res.json({ deleted: info.changes });
+  const delRes = await pool.query("DELETE FROM votes WHERE id = $1", [id]);
+  res.json({ deleted: delRes.rowCount });
 });
 // --- Compare: ranks for every tenant (optionId -> overallRank) ---
-app.get("/api/compare", (req, res) => {
-  const tenants = db.prepare("SELECT id, name FROM tenants ORDER BY id").all();
+app.get("/api/compare", async (req, res) => {
+  const tenantRes = await pool.query("SELECT id, name FROM tenants ORDER BY id");
+  const tenants = tenantRes.rows;
 
   // Get options once (for titles) from burger_club tracker
-  const options = db.prepare("SELECT id, restaurant AS title FROM burger_club ORDER BY id").all();
+  const optionRes = await pool.query("SELECT id, restaurant AS title FROM burger_club ORDER BY id");
+  const options = optionRes.rows;
 
   const ranksByTenant = {};
 
   // For each tenant, compute overallRank 1..64 using the same scoring rules
-  const stmt = db.prepare(
-    `SELECT
-      o.id, o.restaurant AS title,
-      COUNT(v.id) as votes,
-      -- weighted average points (6 - rank) using vote weight
-      CASE WHEN SUM(v.weight) IS NULL OR SUM(v.weight) = 0 THEN NULL
-           ELSE SUM((6 - v.rank) * v.weight) / SUM(v.weight) END as avg_points,
-      -- weighted average rank
-      CASE WHEN SUM(v.weight) IS NULL OR SUM(v.weight) = 0 THEN NULL
-           ELSE SUM(v.rank * v.weight) / SUM(v.weight) END as avg_rank
-    FROM burger_club o
-    LEFT JOIN votes v
-      ON v.option_id = o.id AND v.tenant_id = ?
-    GROUP BY o.id`
-  );
+  for (const t of tenants) {
+    const rowsRes = await pool.query(
+      `SELECT
+        o.id, o.restaurant AS title,
+        COUNT(v.id) as votes,
+        -- weighted average points (6 - rank) using vote weight
+        CASE WHEN SUM(v.weight) IS NULL OR SUM(v.weight) = 0 THEN NULL
+             ELSE SUM((6 - v.rank) * v.weight) / SUM(v.weight) END as avg_points,
+        -- weighted average rank
+        CASE WHEN SUM(v.weight) IS NULL OR SUM(v.weight) = 0 THEN NULL
+             ELSE SUM(v.rank * v.weight) / SUM(v.weight) END as avg_rank
+      FROM burger_club o
+      LEFT JOIN votes v
+        ON v.option_id = o.id AND v.tenant_id = $1
+      GROUP BY o.id`,
+      [t.id]
+    );
 
-  tenants.forEach((t) => {
-    const rows = stmt.all(t.id);
+    const rows = rowsRes.rows;
 
     rows.sort((a, b) => {
-      const ap = a.avg_points ?? 0;
-      const bp = b.avg_points ?? 0;
+      const ap = parseFloat(a.avg_points) ?? 0;
+      const bp = parseFloat(b.avg_points) ?? 0;
       if (bp !== ap) return bp - ap;
-      if ((b.votes ?? 0) !== (a.votes ?? 0)) return (b.votes ?? 0) - (a.votes ?? 0);
+      if ((parseFloat(b.votes) ?? 0) !== (parseFloat(a.votes) ?? 0)) return (parseFloat(b.votes) ?? 0) - (parseFloat(a.votes) ?? 0);
       return String(a.title).localeCompare(String(b.title));
     });
 
@@ -565,7 +546,7 @@ app.get("/api/compare", (req, res) => {
     });
 
     ranksByTenant[String(t.id)] = map;
-  });
+  }
 
   res.json({ tenants, options, ranksByTenant });
 });
@@ -574,24 +555,22 @@ app.get("/api/compare", (req, res) => {
 // =======================
 
 // List all records
-app.get("/api/burger-club", (req, res) => {
-  const rows = db
-    .prepare(
-      `SELECT
-        id, year, month, restaurant, location, borough, rating,
-        paul, job, john, andrew, jj, joe,
-        photo_url, additional_notes, guests,
-        created_at, updated_at
-      FROM burger_club
-      ORDER BY id DESC`
-    )
-    .all();
+app.get("/api/burger-club", async (req, res) => {
+  const result = await pool.query(
+    `SELECT
+      id, year, month, restaurant, location, borough, rating,
+      paul, job, john, andrew, jj, joe,
+      photo_url, additional_notes, guests,
+      created_at, updated_at
+    FROM burger_club
+    ORDER BY id DESC`
+  );
 
-  res.json({ rows });
+  res.json({ rows: result.rows });
 });
 
 // Create record
-app.post("/api/burger-club", (req, res) => {
+app.post("/api/burger-club", async (req, res) => {
   const b = req.body || {};
 
   const year = Number(b.year);
@@ -611,21 +590,19 @@ app.post("/api/burger-club", (req, res) => {
     return res.status(400).json({ error: "Invalid borough" });
   }
 
-  const stmt = db.prepare(`
+  const result = await pool.query(`
     INSERT INTO burger_club
       (year, month, restaurant, location, borough, rating, paul, job, john, andrew, jj, joe, additional_notes, guests, updated_at)
     VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-  `);
-
-  const info = stmt.run(
+      ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+    RETURNING id
+  `, [
     year, month, restaurant, location, borough, rating,
     to01(b.paul), to01(b.job), to01(b.john), to01(b.andrew), to01(b.jj), to01(b.joe),
     String(b.additional_notes || ""), String(b.guests || "")
-  );
+  ]);
 
-  // Determine the new row id robustly (better-sqlite3 returns lastInsertRowid)
-  const newId = (info && info.lastInsertRowid) || db.prepare("SELECT last_insert_rowid() as id").get().id;
+  const newId = result.rows[0].id;
 
   // If a photo was uploaded as a data URL, save it to disk and update photo_url
   if (b.photoData) {
@@ -644,7 +621,7 @@ app.post("/api/burger-club", (req, res) => {
         const outPath = path.join(burgersDir, fname);
         fs.writeFileSync(outPath, data);
         const pubPath = `/burgers/${fname}`;
-        db.prepare(`UPDATE burger_club SET photo_url = ? WHERE id = ?`).run(pubPath, newId);
+        await pool.query(`UPDATE burger_club SET photo_url = $1 WHERE id = $2`, [pubPath, newId]);
         console.log(`Saved burger photo for id=${newId} -> ${outPath}`);
       }
     } catch (err) {
@@ -652,12 +629,13 @@ app.post("/api/burger-club", (req, res) => {
     }
   }
 
-  const row = db.prepare(`SELECT * FROM burger_club WHERE id = ?`).get(newId);
+  const rowRes = await pool.query(`SELECT * FROM burger_club WHERE id = $1`, [newId]);
+  const row = rowRes.rows[0];
   res.json({ ok: true, row });
 });
 
 // Update record
-app.put("/api/burger-club/:id", (req, res) => {
+app.put("/api/burger-club/:id", async (req, res) => {
   const id = Number(req.params.id);
   const b = req.body || {};
 
@@ -680,33 +658,33 @@ app.put("/api/burger-club/:id", (req, res) => {
     return res.status(400).json({ error: "Invalid borough" });
   }
 
-  const exists = db.prepare(`SELECT id FROM burger_club WHERE id = ?`).get(id);
-  if (!exists) return res.status(404).json({ error: "Not found" });
+  const existsRes = await pool.query(`SELECT id FROM burger_club WHERE id = $1`, [id]);
+  if (existsRes.rows.length === 0) return res.status(404).json({ error: "Not found" });
 
-  db.prepare(`
+  await pool.query(`
     UPDATE burger_club SET
-      year = ?,
-      month = ?,
-      restaurant = ?,
-      location = ?,
-      borough = ?,
-      rating = ?,
-      paul = ?,
-      job = ?,
-      john = ?,
-      andrew = ?,
-      jj = ?,
-      joe = ?,
-      additional_notes = ?,
-      guests = ?,
-      updated_at = datetime('now')
-    WHERE id = ?
-  `).run(
+      year = $1,
+      month = $2,
+      restaurant = $3,
+      location = $4,
+      borough = $5,
+      rating = $6,
+      paul = $7,
+      job = $8,
+      john = $9,
+      andrew = $10,
+      jj = $11,
+      joe = $12,
+      additional_notes = $13,
+      guests = $14,
+      updated_at = NOW()
+    WHERE id = $15
+  `, [
     year, month, restaurant, location, borough, rating,
     to01(b.paul), to01(b.job), to01(b.john), to01(b.andrew), to01(b.jj), to01(b.joe),
     String(b.additional_notes || ""), String(b.guests || ""),
     id
-  );
+  ]);
 
   // If photoData provided, save and update photo_url
   if (b.photoData) {
@@ -722,7 +700,7 @@ app.put("/api/burger-club/:id", (req, res) => {
         const outPath = path.join(burgersDir, fname);
         fs.writeFileSync(outPath, data);
         const pubPath = `/burgers/${fname}`;
-        db.prepare(`UPDATE burger_club SET photo_url = ? WHERE id = ?`).run(pubPath, id);
+        await pool.query(`UPDATE burger_club SET photo_url = $1 WHERE id = $2`, [pubPath, id]);
         console.log(`Saved burger photo for id=${id} -> ${outPath}`);
       }
     } catch (err) {
@@ -730,17 +708,18 @@ app.put("/api/burger-club/:id", (req, res) => {
     }
   }
 
-  const row = db.prepare(`SELECT * FROM burger_club WHERE id = ?`).get(id);
+  const rowRes = await pool.query(`SELECT * FROM burger_club WHERE id = $1`, [id]);
+  const row = rowRes.rows[0];
   res.json({ ok: true, row });
 });
 
 // Delete record
-app.delete("/api/burger-club/:id", (req, res) => {
+app.delete("/api/burger-club/:id", async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: "Invalid id" });
 
-  const info = db.prepare(`DELETE FROM burger_club WHERE id = ?`).run(id);
-  res.json({ ok: true, deleted: info.changes });
+  const result = await pool.query(`DELETE FROM burger_club WHERE id = $1`, [id]);
+  res.json({ ok: true, deleted: result.rowCount });
 });
 
 

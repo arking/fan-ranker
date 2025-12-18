@@ -9,10 +9,10 @@
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
-    "better-sqlite3": "^9.6.0",
     "cookie-parser": "^1.4.6",
     "express": "^4.19.2",
     "multer": "^2.0.2",
-    "nanoid": "^5.0.7"
+    "nanoid": "^5.0.7",
+    "pg": "^8.11.3"
   }
 }
